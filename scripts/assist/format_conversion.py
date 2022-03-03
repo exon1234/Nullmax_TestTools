@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import json
 import os, cv2, traceback
 from PIL import Image
 

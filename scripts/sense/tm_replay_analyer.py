@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
-import os
 from hashlib import md5
 from scripts.common import utils
 from scripts.common.config.cfg import Config
 import json, shutil, tqdm, copy
-import pandas as pd
-# from jyftools import *
+
+from scripts.sense.jyftools import *
 
 
 def get_replay_result(label_jsons, perce_jsons, func_list):
@@ -18,7 +17,7 @@ def get_replay_result(label_jsons, perce_jsons, func_list):
         eval(func)(label_jsons, perce_jsons, file_name)
 
 
-@utils.register('环视-recall', 'KPI')
+@utils.register('召回率', 'KPI')
 def get_recall_side(label_jsons, perce_jsons, file_name):
     '''召回率获取'''
     if not label_jsons or len(label_jsons) != 1 or not perce_jsons[0].endswith('.json'):
@@ -56,7 +55,7 @@ def get_recall_side(label_jsons, perce_jsons, file_name):
     utils.write_to_excel(df=df, file_name=file_name, sheet_name='type')
 
 
-@utils.register('环视-precision', 'KPI')
+@utils.register('精确率', 'KPI')
 def get_precision_side(label_jsons, perce_jsons, file_name):
     '''精确率获取'''
     if not label_jsons or len(label_jsons) != 1 or not perce_jsons[0].endswith('.json'):
@@ -89,7 +88,7 @@ def get_precision_side(label_jsons, perce_jsons, file_name):
     utils.write_to_excel(df=df, file_name=file_name, sheet_name='type')
 
 
-@utils.register('环视-测距', 'KPI')
+@utils.register('测距效果', 'KPI')
 def get_ranging_side(label_jsons, perce_jsons, file_name):
     '''测距效果获取'''
     if not label_jsons or len(label_jsons) <= 1 or not perce_jsons[0].endswith('.json'):
@@ -146,7 +145,7 @@ def get_ranging_side(label_jsons, perce_jsons, file_name):
     utils.write_to_excel(df=df, file_name=file_name, sheet_name='distance')
 
 
-@utils.register('环视-测速', 'KPI')
+@utils.register('测速效果', 'KPI')
 def get_velocity_side(label_jsons, perce_jsons, file_name):
     '''测速效果获取'''
     if not label_jsons or len(label_jsons) <= 1 or not perce_jsons[0].endswith('.json'):
@@ -203,7 +202,7 @@ def get_velocity_side(label_jsons, perce_jsons, file_name):
     utils.write_to_excel(df=df, file_name=file_name, sheet_name='velocity')
 
 
-@utils.register('环视-测加速度', 'KPI')
+@utils.register('测加速度', 'KPI')
 def get_accel_side(label_jsons, perce_jsons, file_name):
     '''测加速度效果获取'''
     if not label_jsons or len(label_jsons) <= 1 or not perce_jsons[0].endswith('.json'):
@@ -259,7 +258,7 @@ def get_accel_side(label_jsons, perce_jsons, file_name):
     utils.write_to_excel(df=df, file_name=file_name, sheet_name='accel')
 
 
-@utils.register('问题绘图对比', 'KPI')
+@utils.register('问题数据绘图', 'Draw')
 def draw_problem_img(problem_jsons, raw_imgs, file_name):
     for problem_json in problem_jsons:
         problem_json_data = utils.get_json_data(problem_json)
@@ -275,7 +274,7 @@ def draw_problem_img(problem_jsons, raw_imgs, file_name):
             utils.draw_plot(new_path, problem_json_data)
 
 
-@utils.register('标注/感知数据绘图', 'KPI')
+@utils.register('标注/感知数据绘图', 'Draw')
 def draw_label_img(problem_jsons, raw_imgs, file_name):
     if len(problem_jsons) == 1:
         problem_json_datas = utils.get_json_data(problem_jsons[0])
@@ -307,7 +306,7 @@ def draw_label_img(problem_jsons, raw_imgs, file_name):
                 utils.draw_plot(new_path, problem_json_data)
 
 
-@utils.register('S/M/L-recall', 'KPI')
+@utils.register('S/M/L-recall', 'OtherKPI')
 def label_get_all_recall(label_jsons, perce_jsons, file_name):
     '''
     召回率获取
@@ -350,7 +349,7 @@ def label_get_all_recall(label_jsons, perce_jsons, file_name):
     utils.write_to_excel(df=df, file_name=file_name, sheet_name='SML')
 
 
-@utils.register('S/M/L-precision', 'KPI')
+@utils.register('S/M/L-precision', 'OtherKPI')
 def label_get_all_precision(label_jsons, perce_jsons, file_name):
     '''
     精确率获取
@@ -391,7 +390,7 @@ def label_get_all_precision(label_jsons, perce_jsons, file_name):
     utils.write_to_excel(df=df, file_name=file_name, sheet_name='SML')
 
 
-@utils.register('漏检问题筛选', 'KPI')
+@utils.register('漏检问题筛选', 'SenseFilter')
 def get_problems_lost(label_jsons, perce_jsons, file_name):
     if not perce_jsons or not perce_jsons[0].endswith('.json'):
         return
@@ -440,7 +439,7 @@ def get_problems_lost(label_jsons, perce_jsons, file_name):
     print('数据处理完毕')
 
 
-@utils.register('误检问题筛选', 'KPI')
+@utils.register('误检问题筛选', 'SenseFilter')
 def get_problems_err(label_jsons, perce_jsons, file_name):
     if not perce_jsons or not perce_jsons[0].endswith('.json'):
         return
@@ -490,7 +489,7 @@ def get_problems_err(label_jsons, perce_jsons, file_name):
     print('数据处理完毕')
 
 
-@utils.register('环视-mAP', 'KPI')
+@utils.register('mAP', 'OtherKPI')
 def mAP(label_jsons, perce_jsons, file_name):
     cfgs = Config()
     cfgs = cfgs.evalcfgs
@@ -616,7 +615,7 @@ def mAP(label_jsons, perce_jsons, file_name):
     to_excel(gts, stats, imgids, cfgs, eval_stats)
 
 
-@utils.register('框-稳定性', 'KPI')
+@utils.register('框-稳定性', 'OtherKPI')
 def stability(label_jsons, perce_jsons, file_name):
     def get_frame_id(x):
         name = os.path.basename(x)
@@ -660,7 +659,7 @@ def stability(label_jsons, perce_jsons, file_name):
     res.to_excel('./test_result/jiao/stability/stability.xlsx')
 
 
-@utils.register('Range-稳定性', 'KPI')
+@utils.register('Range-稳定性', 'OtherKPI')
 def stabilit_range(label_jsons, perce_jsons, file_name):
     def get_frame_id(x):
         name = os.path.basename(x)
@@ -700,7 +699,7 @@ def stabilit_range(label_jsons, perce_jsons, file_name):
     res.to_excel('./test_result/jiao/stability/stability_range.xlsx')
 
 
-@utils.register('Range-统计', 'KPI')
+@utils.register('Range-统计', 'OtherKPI')
 def statistic_range(label_jsons, perce_jsons, file_name):
     cfgs = Config()
     cfgs = cfgs.evalcfgs

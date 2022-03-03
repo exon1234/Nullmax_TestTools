@@ -1,15 +1,15 @@
+# -*- coding: utf-8 -*-
 # 实车问题筛选
 import os
 import time
 
 import pandas as pd
-
 from scripts.common import utils
 
 
 def get_vehicle_problem(bag_path, func_list):
     base_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-    file_name = os.path.join(base_path, 'data', "vehicle_problem" + '.xlsx')
+    file_name = os.path.join(base_path, 'data', "filter_problem" + '.xlsx')
     if not os.path.exists(file_name):
         df = pd.DataFrame(columns=['NO', 'Date', 'Time', 'Problem'], index=None)
         df.to_excel(file_name, index=False, engine='openpyxl')

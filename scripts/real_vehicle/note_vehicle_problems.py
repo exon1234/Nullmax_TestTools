@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import os
 from datetime import datetime
 import os, re, shutil, time, traceback, rosbag
 import pandas as pd
