@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 import os, time
 import pandas as pd
 
@@ -107,43 +108,56 @@ def CountMEBTimes(file_path, file_name):
     return
 
 
-@utils.register('标志牌场景', 'simulation')
-def CountRoadsignTimes(file_path, file_name):
+# @utils.register('TSR场景', 'simulation')
+# def cipv_front_lost(file_path, file_name):
+#     '''
+#     交通标志场景数据筛选
+#     '''
+#     topic_list = ['/input/perception/obstacle_list', '/perception/obstacle_list']
+#     last_time = 0
+#     for topic, msg, t, bag_path, bag_count in utils.get_bag_msg(file_path, topic_list):
+#         if topic == '/input/perception/obstacle_list' or topic == '/perception/obstacle_list':
+#             tracks = msg.tracks
+#             now_time = t.to_sec()
+#             if now_time - last_time < 20:
+#                 continue
+#
+#             for i in range(len(tracks)):
+#                 if tracks[i].type == 10:
+#                     last_time = now_time
+#                     data = pd.read_excel(file_name)
+#                     data_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t.to_sec()))
+#                     num = data.shape[0]
+#                     data.loc[num, 'NO'] = num + 1
+#                     data.loc[num, 'Date'] = data_time.split(' ')[0]
+#                     data.loc[num, 'BagPath'] = bag_path
+#                     data.loc[num, 'Time'] = data_time.split(' ')[1]
+#                     data.loc[num, 'Problem'] = '交通标志牌'
+#                     data.to_excel(file_name, index=False, engine='openpyxl')
+#                     break
+
+@utils.register('TSR场景', 'simulation')
+def cipv_front_lost(file_path, file_name):
     '''
     交通标志场景数据筛选
     '''
-    topic_list = ['/aeb/aebs_monitor']
-    is_active = False
-    activate_num = 0
+    topic_list = ['/perception/traffic_signs']
+    last_time = 0
     for topic, msg, t, bag_path, bag_count in utils.get_bag_msg(file_path, topic_list):
-        if topic == '/aeb/aebs_monitor':
-            try:
-                is_dbw = msg.ego_car_state.drive_mode
-                meb_active = msg.meb_command.meb_status
-                obstacel_in_path = msg.meb_obstacle_in_path.position.x
-                linear_velocity = msg.ego_car_state.linear_velocity
-                TTC = msg.meb_obstacle_in_path.ttc
-            except:
+        if topic == '/perception/traffic_signs':
+            traffic_signs = msg.traffic_signs
+            now_time = t.to_sec()
+            if now_time - last_time < 20:
                 continue
-            if meb_active == 4 and is_active is False:
-                data = pd.read_excel(file_name, encoding='utf-8')
+
+            if len(traffic_signs) > 0:
+                last_time = now_time
+                data = pd.read_excel(file_name)
                 data_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t.to_sec()))
                 num = data.shape[0]
                 data.loc[num, 'NO'] = num + 1
                 data.loc[num, 'Date'] = data_time.split(' ')[0]
-                data.loc[num, 'Time'] = data_time.split(' ')[1]
                 data.loc[num, 'BagPath'] = bag_path
-                data.loc[num, 'Problem'] = '触发MEB'
-                data.loc[num, 'Obstracel_X'] = obstacel_in_path
-                data.loc[num, 'velocity'] = int(linear_velocity * 3.6)
-                data.loc[num, 'TTC'] = round(TTC, 2)
-                data.loc[num, 'Drive_Mode'] = is_dbw
-                is_active = True
+                data.loc[num, 'Time'] = data_time.split(' ')[1]
+                data.loc[num, 'Problem'] = '交通标志牌'
                 data.to_excel(file_name, index=False, engine='openpyxl')
-                activate_num += 1
-            if meb_active == 2 and is_active is True:
-                is_active = False
-    data = pd.read_excel(file_name, encoding='utf-8')
-    data.loc[1, 'activate_count'] = activate_num
-    data.loc[1, 'time'] = bag_count * 5
-    return

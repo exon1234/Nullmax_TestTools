@@ -1,0 +1,9 @@
+{
+  "临时作业": {
+    "锥桶":{"invalid": 0, "id": 30000, "exclude": []},
+    "隔离墙":{"invalid": 0, "id": 30001, "exclude": []},
+    "防撞桶":{"invalid": 0, "id": 30002, "exclude": []},
+    "修路指示牌":{"invalid": 0, "id": 30003, "exclude": []},
+    "水马":{"invalid": 0, "id": 30004, "exclude": []}
+  }
+}

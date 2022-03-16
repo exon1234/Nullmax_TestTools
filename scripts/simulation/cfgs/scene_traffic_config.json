@@ -1,0 +1,21 @@
+{
+  "路测设施": {
+  "绿化带":{"invalid": 1, "id": 20000, "exclude": []},
+  "防护栏":{"invalid": 1, "id": 20001, "exclude": []},
+  "隔离带":{"invalid": 1, "id": 20002, "exclude": []},
+  "水泥墙":{"invalid": 1, "id": 20003, "exclude": []},
+  "遮光板":{"invalid": 1, "id": 20004, "exclude": []}
+  },
+  "交通标识": {
+    "限速牌": {"invalid": 0, "id": 20100, "exclude": []},
+    "解除限速牌":{"invalid": 0, "id": 20101, "exclude": []},
+    "交通指示牌":{"invalid": 0, "id": 20102, "exclude": []},
+    "指路牌":{"invalid": 0, "id": 20103, "exclude": []},
+    "红绿灯": {"invalid": 0, "id": 20104, "exclude": []}
+  },
+  "建筑物": {
+    "减速带":{"invalid": 0, "id": 20200, "exclude": []},
+    "收费站":{"invalid": 0, "id": 20201, "exclude": []},
+    "公交车站":{"invalid": 0, "id": 20203, "exclude": []}
+  }
+}

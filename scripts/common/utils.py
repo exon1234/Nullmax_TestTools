@@ -3,8 +3,7 @@ import copy, logging, os, json, cv2
 import rosbag
 import pandas as pd
 from datetime import datetime
-
-# from config.cfg import Config
+from scripts.common.config.cfg import Config
 
 FUNCTION_SET = {}
 BASIC_NAME = os.path.dirname(os.path.dirname(__file__)) + '/data/' + datetime.now().strftime("%Y_%m_%d_")
@@ -77,6 +76,7 @@ def get_bag_msg(file_path, topic_list):
             bag_data = rosbag.Bag(bag_path, skip_index=True)
             bag_count += 1
         except:
+            print('无效数据：{}'.format(os.path.basename(bag_path)))
             continue
         for topic, msg, t in bag_data.read_messages(
                 topics=topic_list):
@@ -338,16 +338,26 @@ def get_match_obstacle_precision_side(label_result, perce_result):
             #     continue
             if abs(perce_data["bbox3d"]["obstacle_pos_y"]) > 60:
                 continue
-            px = perce_data["uv_bbox2d"]["obstacle_bbox.x"] * proportion + perce_data["uv_bbox2d"][
-                "obstacle_bbox.width"] * proportion / 2
-            py = perce_data["uv_bbox2d"]["obstacle_bbox.y"] * proportion - line_compensation + perce_data["uv_bbox2d"][
-                "obstacle_bbox.height"] * proportion / 2
-            point = [px, py]
+            # px = perce_data["uv_bbox2d"]["obstacle_bbox.x"] * proportion + perce_data["uv_bbox2d"][
+            #     "obstacle_bbox.width"] * proportion / 2
+            # py = perce_data["uv_bbox2d"]["obstacle_bbox.y"] * proportion - line_compensation + perce_data["uv_bbox2d"][
+            #     "obstacle_bbox.height"] * proportion / 2
+            # point = [px, py]
+            px1 = perce_data["uv_bbox2d"]["obstacle_bbox.x"] * proportion
+            px2 = perce_data["uv_bbox2d"]["obstacle_bbox.x"] * proportion + perce_data["uv_bbox2d"][
+                "obstacle_bbox.width"] * proportion
+            py1 = perce_data["uv_bbox2d"]["obstacle_bbox.y"] * proportion - line_compensation + perce_data["uv_bbox2d"][
+                "obstacle_bbox.height"] * proportion
+            py2 = perce_data["uv_bbox2d"]["obstacle_bbox.y"] * proportion - line_compensation + perce_data["uv_bbox2d"][
+                "obstacle_bbox.height"] * proportion
+            point1 = [px1, py1]
+            point2 = [px2, py2]
             for attention_area in attention_areas:
                 xn = [float(x) for x in attention_area["tags"]["xn"].replace('"', '').split(';')]
                 yn = [float(y) for y in attention_area["tags"]["yn"].replace('"', '').split(';')]
                 polygon = zip(xn, yn)
-                if is_in_poly(point, polygon):
+                # if is_in_poly(point, polygon):
+                if is_in_poly(point1, polygon) and is_in_poly(point2, polygon):
                     for label_data in label_result["task_vehicle"]:
                         perce_data['problem'] = 'FP'
                         perce_problem = {key: perce_data}

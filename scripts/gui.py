@@ -1,9 +1,14 @@
 # -*- coding: utf-8 -*-
+import itertools
 import json
 import os, sys, traceback
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
+from allpairspy import AllPairs
+import pandas as pd
+
+from scripts.common.utils import logger
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from scripts.assist import format_conversion
@@ -12,12 +17,13 @@ from scripts.real_vehicle import filter_vehicle_problems
 from scripts.sense import tm_replay_analyer
 from scripts.simulation import filter_vehicle_scene
 from scripts.common import utils
+from collections import OrderedDict
 
 
 def singleton(cls, *args, **kwargs):
     instances = {}
 
-    def get_instance(*args, **kwargs):
+    def get_instance():
         if cls not in instances:
             instances[cls] = cls(*args, **kwargs)
         return instances[cls]
@@ -108,7 +114,7 @@ class KPIWindows(TemplateWindows):
         self.btn_analy_kpi.clicked.connect(self.kpi_analy)
         self.sense_label.path_signal.connect(self.sense_callback)
         self.label_label.path_signal.connect(self.label_callback)
-        self.cb = {}
+        self.cb = OrderedDict()
         for key, value in utils.FUNCTION_SET.items():
             if value[1] == 'KPI':
                 self.cb[key] = QCheckBox(key, self)
@@ -135,7 +141,7 @@ class KPIWindows(TemplateWindows):
 
     def init_qss(self):
         self.btn_analy_kpi.setStyleSheet(
-            '''QPushButton{background:#6DDF6D;border-radius:5px;}QPushButton:hover{background:green;}''')
+            '''QPushButton{background:#CCFFFF;border-radius:5px;}QPushButton:hover{background:green;}''')
 
     def sense_callback(self, path):
         self.sense_files = utils.get_all_files(path, '.json')
@@ -186,7 +192,7 @@ class SenseFilterWindows(TemplateWindows):
     def init_controller(self):
         self.btn_analy_kpi.clicked.connect(self.kpi_analy)
         self.sense_label.path_signal.connect(self.sense_callback)
-        self.cb = {}
+        self.cb = OrderedDict()
         for key, value in utils.FUNCTION_SET.items():
             if value[1] == 'SenseFilter':
                 self.cb[key] = QCheckBox(key, self)
@@ -212,7 +218,7 @@ class SenseFilterWindows(TemplateWindows):
 
     def init_qss(self):
         self.btn_analy_kpi.setStyleSheet(
-            '''QPushButton{background:#6DDF6D;border-radius:5px;}QPushButton:hover{background:green;}''')
+            '''QPushButton{background:#CCFFFF;border-radius:5px;}QPushButton:hover{background:green;}''')
 
     def sense_callback(self, path):
         self.sense_files = utils.get_all_files(path, '.json')
@@ -255,7 +261,7 @@ class OtherKPIWindows(TemplateWindows):
         self.btn_analy_kpi.clicked.connect(self.kpi_analy)
         self.sense_label.path_signal.connect(self.sense_callback)
         self.label_label.path_signal.connect(self.label_callback)
-        self.cb = {}
+        self.cb = OrderedDict()
         for key, value in utils.FUNCTION_SET.items():
             if value[1] == 'OtherKPI':
                 self.cb[key] = QCheckBox(key, self)
@@ -282,7 +288,7 @@ class OtherKPIWindows(TemplateWindows):
 
     def init_qss(self):
         self.btn_analy_kpi.setStyleSheet(
-            '''QPushButton{background:#6DDF6D;border-radius:5px;}QPushButton:hover{background:green;}''')
+            '''QPushButton{background:#CCFFFF;border-radius:5px;}QPushButton:hover{background:green;}''')
 
     def sense_callback(self, path):
         self.sense_files = utils.get_all_files(path, '.json')
@@ -335,7 +341,7 @@ class DrawWindows(TemplateWindows):
         self.btn_analy_kpi.clicked.connect(self.kpi_analy)
         self.sense_label.path_signal.connect(self.sense_callback)
         self.label_label.path_signal.connect(self.label_callback)
-        self.cb = {}
+        self.cb = OrderedDict()
         for key, value in utils.FUNCTION_SET.items():
             if value[1] == 'Draw':
                 self.cb[key] = QCheckBox(key, self)
@@ -362,7 +368,7 @@ class DrawWindows(TemplateWindows):
 
     def init_qss(self):
         self.btn_analy_kpi.setStyleSheet(
-            '''QPushButton{background:#6DDF6D;border-radius:5px;}QPushButton:hover{background:green;}''')
+            '''QPushButton{background:#CCFFFF;border-radius:5px;}QPushButton:hover{background:green;}''')
 
     def sense_callback(self, path):
         self.sense_files = utils.get_all_files(path, '.BMP')
@@ -436,13 +442,10 @@ class TestCaseWindows(TemplateWindows):
         widget = QWidget()
         self.stacked_layout = QStackedLayout()
         widget.setLayout(self.stacked_layout)
-        widget.setStyleSheet("background-color:white;")
-        # widget.setStyleSheet("border: 2px solid grey")
 
         self.stacked_layout.addWidget(self.form1)
         self.stacked_layout.addWidget(self.form2)
         self.stacked_layout.addWidget(self.form3)
-        # self.stacked_layout.addWidget(self.form4)
 
         # 全局垂直布局
         global_box = QVBoxLayout()
@@ -477,42 +480,60 @@ class CaseAdasWindows(TemplateWindows):
     def __init__(self):
         TemplateWindows.__init__(self)
 
+    def init_ui(self):
+        self.setGeometry(600, 400, 1080, 720)
+
     def init_element(self):
-        self.btn_dump_case = QPushButton('导出测试用例')
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'simulation/cfgs/adas_case_config.json')
-        self.adas_case = utils.get_json_data(path)
-        self.cb = {}
-        for classify in self.adas_case.keys():
-            self.cb[classify] = QLabel(classify)
-            for func in self.adas_case[classify].keys():
-                self.cb[func] = QCheckBox(func)
-
-    def init_controller(self):
-        # self.btn_case.clicked.connect(self.dump_case)
-        pass
-
-    def init_layout(self):
-        positions = [(i, j) for i in range(8) for j in range(1, 5)]
+        self.scene_case = utils.get_json_data(path)
+        self.assembly = OrderedDict()
         # 全局垂直布局
         global_box = QVBoxLayout()
-        for classify in self.adas_case.keys():
-            # 局部嵌套网络布局
+        positions = [(i, j) for i in range(8) for j in range(1, 5)]
+
+        for classify in self.scene_case.keys():
             g_box = QGridLayout()
-            self.cb[classify].setStyleSheet("background-color:#FFFFCC;border: 2px solid blue;")
-            g_box.addWidget(self.cb[classify], 0, 0, -1, 1)
-            for func, position in zip(self.adas_case[classify].keys(), positions):
-                g_box.addWidget(self.cb[func], *position)
             global_box.addLayout(g_box)
-
+            self.assembly[classify] = (QLabel(classify), QCheckBox('全选'))
+            g_box.addWidget(self.assembly[classify][0], 0, 0, -1, 1)
+            g_box.addWidget(self.assembly[classify][1], 1, 0, -1, 1)
+            self.assembly[classify][0].setStyleSheet("background-color:#CCCCCC;")
+            self.assembly[classify][1].stateChanged.connect(self.change_cb1(classify))
+            for terms, position in zip(self.scene_case[classify], positions):
+                self.assembly[terms] = QCheckBox(terms)
+                g_box.addWidget(self.assembly[terms], *position)
+                self.assembly[terms].stateChanged.connect(self.change_cb2(classify))
         global_box.addStretch(1)
-        global_box.addWidget(self.btn_dump_case)
-
         self.setLayout(global_box)
 
-    def dump_case(self):
-        for key, value in self.cb.items():
-            if value.isChecked():
-                pass
+    def change_cb1(self, classify):
+        def wrapper():
+            if self.assembly[classify][1].checkState() == Qt.Checked:
+                for terms in self.scene_case[classify]:
+                    self.assembly[terms].setCheckState(Qt.Checked)
+            elif self.assembly[classify][1].checkState() == Qt.Unchecked:
+                for terms in self.scene_case[classify]:
+                    self.assembly[terms].setCheckState(Qt.Unchecked)
+
+        return wrapper
+
+    def change_cb2(self, classify):
+        def wrapper():
+            i = 0
+            sum = len(self.scene_case[classify])
+            for terms in self.scene_case[classify]:
+                if self.assembly[terms].isChecked():
+                    i += 1
+            if i == sum:
+                self.assembly[classify][1].setCheckState(Qt.Checked)
+            elif i != 0:
+                self.assembly[classify][1].setTristate()
+                self.assembly[classify][1].setCheckState(Qt.PartiallyChecked)
+            else:
+                self.assembly[classify][1].setTristate(False)
+                self.assembly[classify][1].setCheckState(Qt.Unchecked)
+
+        return wrapper
 
 
 # 积累场景泛化用例
@@ -527,6 +548,7 @@ class CaseSceneWindows(TemplateWindows):
         TemplateWindows.__init__(self)
 
     def init_element(self):
+        self.btn_dump_case = QPushButton('导出用例场景')
         self.btn_road_panel = QPushButton('1.道路信息')
         self.btn_traffic_panel = QPushButton('2.交通设施')
         self.btn_temporary_panel = QPushButton('3.临时作业')
@@ -535,7 +557,8 @@ class CaseSceneWindows(TemplateWindows):
         self.btn_environment_panel = QPushButton('6.环境信息')
         self.btn_digital_panel = QPushButton('7.数字信息')
 
-        path1 = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'simulation/cfgs/scene_RoadStructure_cfg.json')
+        path1 = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             'simulation/cfgs/scene_road_structure_cfg.json')
         path2 = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'simulation/cfgs/scene_traffic_config.json')
         path3 = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'simulation/cfgs/scene_temporary_config.json')
         path4 = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'simulation/cfgs/scene_vut_config.json')
@@ -544,23 +567,35 @@ class CaseSceneWindows(TemplateWindows):
         path7 = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'simulation/cfgs/scene_digital_config.json')
 
         self.form1 = SceneParamsWindows(path1)
-        self.form2 = SceneParamsWindows(path1)
-        self.form3 = SceneParamsWindows(path1)
-        self.form4 = SceneParamsWindows(path1)
-        self.form5 = SceneParamsWindows(path1)
-        self.form6 = SceneParamsWindows(path1)
-        self.form7 = SceneParamsWindows(path1)
+        self.form2 = SceneParamsWindows(path2)
+        self.form3 = SceneParamsWindows(path3)
+        self.form4 = SceneParamsWindows(path4)
+        self.form5 = SceneParamsWindows(path5)
+        self.form6 = SceneParamsWindows(path6)
+        self.form7 = SceneParamsWindows(path7)
 
-        # path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'simulation/cfgs/adas_case_config.json')
-        # self.case_function = utils.get_json_data(path)
-        # self.btn_case = QPushButton('导出测试用例')
-        # self.cb = {}
-        # for func in self.case_function.keys():
-        #     self.cb[func] = QCheckBox(func)
+        scene_dict = utils.get_json_data(path1)
+        # scene_dict = {**scene_dict, **utils.get_json_data(path2)}
+        # self.scene_dict = {**self.scene_dict, **utils.get_json_data(path3)}
+        # self.scene_dict = {**self.scene_dict, **utils.get_json_data(path4)}
+        # self.scene_dict = {**self.scene_dict, **utils.get_json_data(path5)}
+        # self.scene_dict = {**self.scene_dict, **utils.get_json_data(path6)}
+        # self.scene_dict = {**self.scene_dict, **utils.get_json_data(path7)}
+
+        self.case_scene = {}
+        for key, value in scene_dict.items():
+            pass
+            # self.case_scene = {**self.case_scene, **value}
 
     def init_controller(self):
-        # self.btn_case.clicked.connect(self.dump_case)
-        pass
+        self.btn_dump_case.clicked.connect(self.case_sence_maker)
+        self.btn_road_panel.clicked.connect(self.btn_press1_clicked)
+        self.btn_traffic_panel.clicked.connect(self.btn_press2_clicked)
+        self.btn_temporary_panel.clicked.connect(self.btn_press3_clicked)
+        self.btn_vut_panel.clicked.connect(self.btn_press4_clicked)
+        self.btn_gvt_panel.clicked.connect(self.btn_press5_clicked)
+        self.btn_environment_panel.clicked.connect(self.btn_press6_clicked)
+        self.btn_digital_panel.clicked.connect(self.btn_press7_clicked)
 
     def init_layout(self):
         # 局部垂直布局
@@ -572,10 +607,11 @@ class CaseSceneWindows(TemplateWindows):
         v_box.addWidget(self.btn_gvt_panel)
         v_box.addWidget(self.btn_environment_panel)
         v_box.addWidget(self.btn_digital_panel)
+        v_box.addWidget(self.btn_dump_case)
 
         # 局部堆叠布局
         widget = QWidget()
-        widget.setStyleSheet("background-color:#CCFFCC;")
+        # widget.setStyleSheet("background-color:#CCFFCC;")
         self.stacked_layout = QStackedLayout()
         widget.setLayout(self.stacked_layout)
 
@@ -588,58 +624,144 @@ class CaseSceneWindows(TemplateWindows):
         self.stacked_layout.addWidget(self.form7)
 
         # 局部水平布局
-        h_box = QHBoxLayout()
-        h_box.addLayout(v_box)
-        h_box.addWidget(widget)
+        global_box = QHBoxLayout()
+        global_box.addLayout(v_box)
+        global_box.addWidget(widget)
 
-        # # 局部网络布局
-        # g_box = QGridLayout()
-        # positions = ((i, j) for i in range(8) for j in range(3))
-        # for btn, position in zip(self.cb.values(), positions):
-        #     g_box.addWidget(btn, *position)
-        #
-        # # 全局垂直布局
-        # global_box = QVBoxLayout()
-        # global_box.addLayout(g_box)
-        # global_box.addStretch(1)
-        # global_box.addWidget(self.btn_case)
-        #
-        # self.setLayout(global_box)
-        self.setLayout(h_box)
+        self.setLayout(global_box)
 
-    def dump_case(self):
-        for key, value in self.cb.items():
-            if value.isChecked():
-                pass
+    def case_sence_maker(self):
+        column_list1, condition_list1 = self.form1.dump_scene_condition()
+        column_list2, condition_list2 = self.form2.dump_scene_condition()
+        # column_list3, condition_list3 = self.form3.dump_scene_condition()
+        # column_list4, condition_list4 = self.form4.dump_scene_condition()
+        # column_list5, condition_list5 = self.form5.dump_scene_condition()
+        # column_list6, condition_list6 = self.form6.dump_scene_condition()
+        # column_list7, condition_list7 = self.form7.dump_scene_condition()
+        # columns = column_list1 + column_list2 + column_list3 + column_list4 + column_list5 + column_list6 + column_list6 + column_list7
+        # conditions = condition_list1 + condition_list2 + condition_list3 + condition_list3 + condition_list4 + condition_list5 + condition_list6 + condition_list7
+
+        columns = column_list1
+        columns.insert(0, "NO")
+        conditions = condition_list1
+        df = pd.DataFrame(columns=columns)
+        for i, pairs in enumerate(AllPairs(conditions)):
+            if self.is_valid_combination(pairs):
+                df.loc[i] = [i] + pairs
+                print(pairs)
+        df.to_csv('1.csv', index=False)
+
+    def is_valid_combination(self, conditions):
+        excludes = []
+        for i in range(len(conditions)):
+            if conditions[i] != '无': excludes.extend(self.case_scene[conditions[i]]['exclude'])
+        for i in range(len(conditions)):
+            if conditions[i] != '无' and self.case_scene[conditions[i]]['id'] in excludes: return False
+        return True
+
+    def btn_press1_clicked(self):
+        self.stacked_layout.setCurrentIndex(0)
+
+    def btn_press2_clicked(self):
+        self.stacked_layout.setCurrentIndex(1)
+
+    def btn_press3_clicked(self):
+        self.stacked_layout.setCurrentIndex(2)
+
+    def btn_press4_clicked(self):
+        self.stacked_layout.setCurrentIndex(3)
+
+    def btn_press5_clicked(self):
+        self.stacked_layout.setCurrentIndex(4)
+
+    def btn_press6_clicked(self):
+        self.stacked_layout.setCurrentIndex(5)
+
+    def btn_press7_clicked(self):
+        self.stacked_layout.setCurrentIndex(6)
 
 
-# 参数化泛化七层场景
+# 用例场景生成
 class SceneParamsWindows(TemplateWindows):
     def __init__(self, path):
-        self.adas_case = utils.get_json_data(path)
+        self.scene_case = utils.get_json_data(path)
         TemplateWindows.__init__(self)
 
     def init_ui(self):
-        self.cb = {}
-        for classify in self.adas_case.keys():
-            self.cb[classify] = QLabel(classify)
-            for func in self.adas_case[classify]:
-                self.cb[func] = QCheckBox(func)
-        positions = [(i, j) for i in range(8) for j in range(1, 5)]
+        self.setGeometry(600, 400, 1080, 720)
+
+    def init_element(self):
+        # self.btn_export_case = QPushButton('导出场景用例')
+        self.assembly = OrderedDict()
         # 全局垂直布局
         global_box = QVBoxLayout()
-        for classify in self.adas_case.keys():
-            # 局部嵌套网络布局
+        positions = [(i, j) for i in range(8) for j in range(1, 5)]
+
+        for classify in self.scene_case.keys():
             g_box = QGridLayout()
-            self.cb[classify].setStyleSheet("background-color:#FFFFCC;border: 2px solid blue;")
-            g_box.addWidget(self.cb[classify], 0, 0, -1, 1)
-            for func, position in zip(self.adas_case[classify], positions):
-                g_box.addWidget(self.cb[func], *position)
             global_box.addLayout(g_box)
+            self.assembly[classify] = (QLabel(classify), QCheckBox('全选'))
+            g_box.addWidget(self.assembly[classify][0], 0, 0, -1, 1)
+            g_box.addWidget(self.assembly[classify][1], 1, 0, -1, 1)
+            self.assembly[classify][0].setStyleSheet("background-color:#CCCCCC;")
+            self.assembly[classify][1].stateChanged.connect(self.change_cb1(classify))
+            i = 0
+            for terms, position in zip(self.scene_case[classify], positions):
+                i += 1
+                self.assembly[terms] = QCheckBox(terms)
+                g_box.addWidget(self.assembly[terms], *position)
+                self.assembly[terms].stateChanged.connect(self.change_cb2(classify))
+
+            while i < 4:
+                i += 1
+                g_box.addWidget(QLabel(''), 0, i)
 
         global_box.addStretch(1)
-
         self.setLayout(global_box)
+
+    def dump_scene_condition(self):
+        condition_list = []
+        index_list = []
+        for classify in self.scene_case.keys():
+            classify_list = []
+            for terms in self.scene_case[classify]:
+                if self.assembly[terms].isChecked() and self.scene_case[classify][terms]['invalid'] == 0:
+                    classify_list.append(terms)
+
+            if not classify_list:
+                classify_list.append('无')
+            index_list.append(classify)
+            condition_list.append(classify_list)
+        return index_list, condition_list
+
+    def change_cb1(self, classify):
+        def wrapper():
+            if self.assembly[classify][1].checkState() == Qt.Checked:
+                for terms in self.scene_case[classify]:
+                    self.assembly[terms].setCheckState(Qt.Checked)
+            elif self.assembly[classify][1].checkState() == Qt.Unchecked:
+                for terms in self.scene_case[classify]:
+                    self.assembly[terms].setCheckState(Qt.Unchecked)
+
+        return wrapper
+
+    def change_cb2(self, classify):
+        def wrapper():
+            i = 0
+            sum = len(self.scene_case[classify])
+            for terms in self.scene_case[classify]:
+                if self.assembly[terms].isChecked():
+                    i += 1
+            if i == sum:
+                self.assembly[classify][1].setCheckState(Qt.Checked)
+            elif i != 0:
+                self.assembly[classify][1].setTristate()
+                self.assembly[classify][1].setCheckState(Qt.PartiallyChecked)
+            else:
+                self.assembly[classify][1].setTristate(False)
+                self.assembly[classify][1].setCheckState(Qt.Unchecked)
+
+        return wrapper
 
 
 # 场景筛选
@@ -656,7 +778,7 @@ class FilterSceneWindows(TemplateWindows):
         self.filter_scene = QPushButton('开始处理数据')
         self.btn_back = QPushButton('返回主页')
         self.file_label = DropArea('拖入数据目录')
-        self.cb = {}
+        self.cb = OrderedDict()
         for key, value in utils.FUNCTION_SET.items():
             if value[1] == 'simulation':
                 self.cb[key] = QCheckBox(key, self)
@@ -689,7 +811,7 @@ class FilterSceneWindows(TemplateWindows):
         self.setLayout(v_box)
 
     def init_qss(self):
-        self.filter_scene.setStyleSheet("background-color: #00FF00")
+        self.filter_scene.setStyleSheet("background-color: #CCFFFF")
         self.btn_back.setStyleSheet("background-color: #AAAAAA")
 
     def file_callback(self, path):
@@ -736,7 +858,7 @@ class RecordProblemWindows(TemplateWindows):
         self.init_problem_list_module()
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'common/config/classify_problems_config.json')
         self.problems_type = utils.get_json_data(path)["classify"]
-        self.row_dict = {}
+        self.row_dict = OrderedDict()
 
         # 添加测试信息
         self.line_tester = QLineEdit(self)
@@ -851,7 +973,7 @@ class FilterProblemWindows(TemplateWindows):
         self.filter_problem = QPushButton('开始处理数据')
         self.file_label = DropArea('拖入数据目录')
         self.file_path = ''
-        self.cb = {}
+        self.cb = OrderedDict()
         for key, value in utils.FUNCTION_SET.items():
             if value[1] == 'vehicle':
                 self.cb[key] = QCheckBox(key, self)
@@ -881,7 +1003,7 @@ class FilterProblemWindows(TemplateWindows):
 
     def init_qss(self):
         self.filter_problem.setStyleSheet(
-            '''QPushButton{background:#6DDF6D;border-radius:5px;}QPushButton:hover{background:green;}''')
+            '''QPushButton{background:#CCFFFF;border-radius:5px;}QPushButton:hover{background:green;}''')
 
     def file_callback(self, path):
         self.timestamp_log_files = utils.get_all_files(path, '.log')
@@ -948,7 +1070,7 @@ class ExtractDataWindows(TemplateWindows):
 
     def init_qss(self):
         self.btn_extract.setStyleSheet(
-            '''QPushButton{background:#6DDF6D;border-radius:5px;}QPushButton:hover{background:green;}''')
+            '''QPushButton{background:#CCFFFF;border-radius:5px;}QPushButton:hover{background:green;}''')
 
     def excel_callback(self, path):
         if str(path).endswith('xlsx'):
@@ -1008,7 +1130,7 @@ class VehicleWindows(TemplateWindows):
         widget = QWidget()
         self.stacked_layout = QStackedLayout()
         widget.setLayout(self.stacked_layout)
-        widget.setStyleSheet("border: 2px solid grey")
+        widget.setStyleSheet("border: 2px solid black")
 
         self.stacked_layout.addWidget(self.form1)
         self.stacked_layout.addWidget(self.form2)
@@ -1021,9 +1143,9 @@ class VehicleWindows(TemplateWindows):
         self.setLayout(global_box)
 
     def init_qss(self):
-        self.btn_filter_panel.setStyleSheet("background-color: #77DDFF")
-        self.btn_extract_panel.setStyleSheet("background-color: #33CCFF")
-        self.btn_problem_panel.setStyleSheet("background-color: #00BBFF")
+        self.btn_filter_panel.setStyleSheet("background-color: #CCFFFF")
+        self.btn_extract_panel.setStyleSheet("background-color: #CCFFFF")
+        self.btn_problem_panel.setStyleSheet("background-color: #CCFFFF")
 
     def btn_press1_clicked(self):
         self.stacked_layout.setCurrentIndex(0)
@@ -1069,9 +1191,12 @@ class SimulationWindows(TemplateWindows):
         self.setLayout(global_box)
 
     def init_qss(self):
-        self.btn_scene_pannel.setStyleSheet("background-color:#FFDD55;")
-        self.btn_case_pannel.setStyleSheet("background-color:#FFCC22;")
-        self.btn_evaluate_pannel.setStyleSheet("background-color:#FFBB00;")
+        self.btn_scene_pannel.setStyleSheet(
+            '''QPushButton{background:#CCCCCC;border-radius:2px;}QPushButton:hover{background:green;}''')
+        self.btn_case_pannel.setStyleSheet(
+            '''QPushButton{background:#CCCCCC;border-radius:2px;}QPushButton:hover{background:green;}''')
+        self.btn_evaluate_pannel.setStyleSheet(
+            '''QPushButton{background:#CCCCCC;border-radius:2px;}QPushButton:hover{background:green;}''')
 
     def slot_show_filter(self):
         self.mainwindows = MainWindows()
@@ -1121,7 +1246,7 @@ class SenseWindows(TemplateWindows):
         widget = QWidget()
         self.stacked_layout = QStackedLayout()
         widget.setLayout(self.stacked_layout)
-        widget.setStyleSheet("border: 2px solid grey")
+        widget.setStyleSheet("border: 2px solid black")
 
         self.stacked_layout.addWidget(self.form1)
         self.stacked_layout.addWidget(self.form2)
@@ -1136,10 +1261,10 @@ class SenseWindows(TemplateWindows):
         self.setLayout(global_box)
 
     def init_qss(self):
-        self.btn_kpi_panel.setStyleSheet("background-color:#EE7700;")
-        self.btn_problem_panel.setStyleSheet("background-color:#DDAA00;")
-        self.btn_other_panel.setStyleSheet("background-color:#EEEE00;")
-        self.btn_draw_panel.setStyleSheet("background-color:#99DD00;")
+        self.btn_kpi_panel.setStyleSheet("background-color:#0099CC;")
+        self.btn_problem_panel.setStyleSheet("background-color:#CCFF66;")
+        self.btn_other_panel.setStyleSheet("background-color:#0099FF;")
+        self.btn_draw_panel.setStyleSheet("background-color:#FFFFCC;")
 
     def btn_press1_clicked(self):
         self.stacked_layout.setCurrentIndex(0)
@@ -1202,13 +1327,13 @@ class AssistWindows(TemplateWindows):
         self.setLayout(global_box)
 
     def init_qss(self):
-        self.btn_img2avi.setStyleSheet("background-color:#FFDD55;")
-        self.btn_png2yuv.setStyleSheet("background-color:#FFDD55;")
-        self.btn_png2bmp.setStyleSheet("background-color:#FFDD55;")
-        self.btn_transform_3d.setStyleSheet("background-color:#BBFF66;")
+        self.btn_img2avi.setStyleSheet("background-color:#CCCCCC;border-radius:2px;")
+        self.btn_png2yuv.setStyleSheet("background-color:#CCCCCC;border-radius:2px;")
+        self.btn_png2bmp.setStyleSheet("background-color:#CCCCCC;border-radius:2px;")
+        self.btn_transform_3d.setStyleSheet("background-color:#CCCCCC;")
 
-        self.file_label.setStyleSheet("border: 2px solid grey")
-        self.result_label.setStyleSheet("border: 2px solid grey")
+        self.file_label.setStyleSheet("border: 2px solid black")
+        self.result_label.setStyleSheet("border: 2px solid black")
 
     def file_callback(self, path):
         if os.path.exists(path):
@@ -1260,7 +1385,6 @@ class MainWindows(TemplateWindows):
 
         self.label_icon = QLabel()
         self.label_icon.setFixedSize(152, 56)
-        self.label_icon.setStyleSheet("border: 2px solid red")
         path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'static/icon.png')
         self.label_icon.setPixmap(QPixmap(path))
         self.label_icon.setScaledContents(True)
@@ -1307,14 +1431,15 @@ class MainWindows(TemplateWindows):
         self.setLayout(global_box)
 
     def init_qss(self):
+        self.label_icon.setStyleSheet("border: 2px solid red")
         self.btn_first_panel.setStyleSheet(
-            '''QPushButton{background:#6DDF6D;border-radius:5px;}QPushButton:hover{background:green;}''')
+            '''QPushButton{background:#CCFF99;border-radius:5px;}QPushButton:hover{background:green;}''')
         self.btn_second_panel.setStyleSheet(
-            '''QPushButton{background:#6DDF6D;border-radius:5px;}QPushButton:hover{background:green;}''')
+            '''QPushButton{background:#CCFF99;border-radius:5px;}QPushButton:hover{background:green;}''')
         self.btn_third_panel.setStyleSheet(
-            '''QPushButton{background:#6DDF6D;border-radius:5px;}QPushButton:hover{background:green;}''')
+            '''QPushButton{background:#CCFF99;border-radius:5px;}QPushButton:hover{background:green;}''')
         self.btn_fourth_panel.setStyleSheet(
-            '''QPushButton{background:#6DDF6D;border-radius:5px;}QPushButton:hover{background:green;}''')
+            '''QPushButton{background:#CCFF99;border-radius:5px;}QPushButton:hover{background:green;}''')
 
     def btn_press1_clicked(self):
         self.stacked_layout.setCurrentIndex(0)
