@@ -13,9 +13,8 @@ from scripts.common.utils import logger
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from scripts.assist import format_conversion
 from scripts.real_vehicle import note_vehicle_problems
-from scripts.real_vehicle import filter_vehicle_problems
+from scripts.real_vehicle import filter_vehicle_scene
 from scripts.sense import tm_replay_analyer
-from scripts.simulation import filter_vehicle_scene
 from scripts.common import utils
 from collections import OrderedDict
 
@@ -764,80 +763,6 @@ class SceneParamsWindows(TemplateWindows):
         return wrapper
 
 
-# 场景筛选
-@singleton
-class FilterSceneWindows(TemplateWindows):
-    def __init__(self):
-        TemplateWindows.__init__(self)
-
-    def init_ui(self):
-        self.setWindowTitle('实车场景筛选')
-        self.setGeometry(600, 400, 480, 240)
-
-    def init_element(self):
-        self.filter_scene = QPushButton('开始处理数据')
-        self.btn_back = QPushButton('返回主页')
-        self.file_label = DropArea('拖入数据目录')
-        self.cb = OrderedDict()
-        for key, value in utils.FUNCTION_SET.items():
-            if value[1] == 'simulation':
-                self.cb[key] = QCheckBox(key, self)
-
-        self.file_path = ''
-
-    def init_controller(self):
-        self.filter_scene.clicked.connect(self.filter_vehicle_scene)
-        self.btn_back.clicked.connect(self.slot_show_main)
-        self.file_label.path_signal.connect(self.file_callback)
-
-    def init_layout(self):
-        # 局部水平布局
-        h_box = QHBoxLayout()
-        h_box.addWidget(self.filter_scene)
-        h_box.addWidget(self.btn_back)
-
-        # 局部网络布局
-        g_box = QGridLayout()
-        positions = [(i, j) for i in range(8) for j in range(3)]
-        for temp, position in zip(self.cb.values(), positions):
-            g_box.addWidget(temp, *position)
-
-        # 全局垂直布局
-        v_box = QVBoxLayout()
-        v_box.addWidget(self.file_label)
-        v_box.addLayout(g_box)
-        v_box.addLayout(h_box)
-
-        self.setLayout(v_box)
-
-    def init_qss(self):
-        self.filter_scene.setStyleSheet("background-color: #CCFFFF")
-        self.btn_back.setStyleSheet("background-color: #AAAAAA")
-
-    def file_callback(self, path):
-        self.timestamp_log_files = utils.get_all_files(path, '.log')
-        self.rosbag_files = utils.get_all_files(path, '.bag')
-        if self.timestamp_log_files or self.rosbag_files:
-            self.file_path = path
-            return
-        self.file_label.setText('拖入数据目录')
-        print('No rosbag and log in path!')
-
-    def filter_vehicle_scene(self):
-        if os.path.isdir(self.file_path):
-            func_list = []
-            for key, value in self.cb.items():
-                if value.isChecked():
-                    func_list.append(utils.FUNCTION_SET[key][0])
-            if func_list:
-                filter_vehicle_scene.get_vehicle_scene(self.file_path, func_list)
-
-    def slot_show_main(self):
-        self.hide()
-        self.mainwindows = MainWindows()
-        self.mainwindows.show()
-
-
 '''实车测试类功能'''
 
 
@@ -1021,12 +946,7 @@ class FilterProblemWindows(TemplateWindows):
                 if value.isChecked():
                     func_list.append(utils.FUNCTION_SET[key][0])
             if func_list:
-                filter_vehicle_problems.get_vehicle_problem(self.file_path, func_list)
-
-    def slot_show_main(self):
-        self.hide()
-        self.mainwindows = MainWindows()
-        self.mainwindows.show()
+                filter_vehicle_scene.get_vehicle_scene(self.file_path, func_list)
 
 
 # 问题数据切片界面
@@ -1166,12 +1086,10 @@ class SimulationWindows(TemplateWindows):
         TemplateWindows.__init__(self)
 
     def init_element(self):
-        self.btn_scene_pannel = QPushButton('场景数据筛选')
         self.btn_case_pannel = QPushButton('仿真用例生成')
         self.btn_evaluate_pannel = QPushButton('仿真结果评测')
 
     def init_controller(self):
-        self.btn_scene_pannel.clicked.connect(self.slot_show_filter)
         self.btn_case_pannel.clicked.connect(self.slot_show_case)
 
     def init_layout(self):
@@ -1179,7 +1097,6 @@ class SimulationWindows(TemplateWindows):
 
         # 局部网络布局
         g_box = QGridLayout()
-        g_box.addWidget(self.btn_scene_pannel)
         g_box.addWidget(self.btn_case_pannel)
         g_box.addWidget(self.btn_evaluate_pannel)
 
@@ -1191,18 +1108,10 @@ class SimulationWindows(TemplateWindows):
         self.setLayout(global_box)
 
     def init_qss(self):
-        self.btn_scene_pannel.setStyleSheet(
-            '''QPushButton{background:#CCCCCC;border-radius:2px;}QPushButton:hover{background:green;}''')
         self.btn_case_pannel.setStyleSheet(
             '''QPushButton{background:#CCCCCC;border-radius:2px;}QPushButton:hover{background:green;}''')
         self.btn_evaluate_pannel.setStyleSheet(
             '''QPushButton{background:#CCCCCC;border-radius:2px;}QPushButton:hover{background:green;}''')
-
-    def slot_show_filter(self):
-        self.mainwindows = MainWindows()
-        self.mainwindows.hide()
-        self.show_windows = FilterSceneWindows()
-        self.show_windows.show()
 
     def slot_show_case(self):
         self.mainwindows = MainWindows()

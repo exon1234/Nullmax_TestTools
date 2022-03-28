@@ -66,7 +66,8 @@ def get_all_files(path, file_extension):
     return files
 
 
-def get_bag_msg(file_path, topic_list):
+
+def get_bag_data(file_path):
     bags = get_all_files(file_path, '.bag')
     bags.sort(reverse=False)
     bag_count = 0
@@ -78,20 +79,19 @@ def get_bag_msg(file_path, topic_list):
         except:
             print('无效数据：{}'.format(os.path.basename(bag_path)))
             continue
-        for topic, msg, t in bag_data.read_messages(
-                topics=topic_list):
-            yield topic, msg, t, bag_path, bag_count
+        yield bag_data, bag_path
         bag_data.close()
+    logger.info("所有数据处理完毕")
+
 
 
 def register(problem_type, mod):
     '''mod：函数所属功能,用于复选框添加到ui界面'''
 
-    def add(fn):
-        FUNCTION_SET[problem_type] = [fn.__name__, mod]
-
+    def add(cls):
+        FUNCTION_SET[problem_type] = [cls, mod]
         def wrapper(*args, **kwargs):
-            return fn(*args, **kwargs)
+            return cls(*args, **kwargs)
 
         return wrapper
 
