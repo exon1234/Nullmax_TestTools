@@ -1,18 +1,22 @@
 # -*- coding: utf-8 -*-
 import copy, logging, os, json, cv2
+import sys
+import time
+
 import rosbag
 import pandas as pd
 from datetime import datetime
 from scripts.common.config.cfg import Config
 
 FUNCTION_SET = {}
-BASIC_NAME = os.path.dirname(os.path.dirname(__file__)) + '/data/' + datetime.now().strftime("%Y_%m_%d_")
+BASIC_NAME = os.path.dirname(os.path.abspath(sys.argv[0])) + '/data/' + datetime.now().strftime("%Y_%m_%d_")
 
 
-def __init():
-    base_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+def _init():
+    base_path = os.path.dirname(os.path.abspath(sys.argv[0]))
     log_path = os.path.join(base_path, 'log')
     data_path = os.path.join(base_path, 'data')
+
     if not os.path.exists(log_path):
         os.makedirs(log_path)
     if not os.path.exists(data_path):
@@ -41,7 +45,7 @@ def write_to_excel(df, file_name, sheet_name):
     print(df)
     writer = pd.ExcelWriter(file_name)
     if os.path.exists(file_name):
-        raw_df = pd.read_excel(file_name, sheet_name=None, encoding='utf-8')
+        raw_df = pd.read_excel(file_name, sheet_name=None)
         for sheet, data in raw_df.items():
             if sheet == sheet_name:
                 df = pd.concat([data, df], sort=False)
@@ -70,26 +74,26 @@ def get_all_files(path, file_extension):
 def get_bag_data(file_path):
     bags = get_all_files(file_path, '.bag')
     bags.sort(reverse=False)
-    bag_count = 0
     for bag_path in bags:
         logger.info('开始处理：{}'.format(os.path.basename(bag_path)))
         try:
             bag_data = rosbag.Bag(bag_path, skip_index=True)
-            bag_count += 1
-        except:
-            print('无效数据：{}'.format(os.path.basename(bag_path)))
+
+        except Exception:
+            logger.info('无效数据：{}'.format(os.path.basename(bag_path)))
             continue
+
         yield bag_data, bag_path
         bag_data.close()
     logger.info("所有数据处理完毕")
 
 
-
-def register(problem_type, mod):
-    '''mod：函数所属功能,用于复选框添加到ui界面'''
+def register(filter_class, mod):
+    '''mod：函数所属功能,用于复选框添加到对应公鞥呢ui界面'''
 
     def add(cls):
-        FUNCTION_SET[problem_type] = [cls, mod]
+        FUNCTION_SET[filter_class] = [cls, mod]
+
         def wrapper(*args, **kwargs):
             return cls(*args, **kwargs)
 
@@ -125,7 +129,7 @@ def is_in_poly(p, poly):
     return is_in
 
 
-def dump_problem_data(file_name, label_data, raw_perce_result, mod):
+def dump_problem_data(file_name, label_data, raw_perception_result, mod):
     file_path = os.path.join(os.path.dirname(BASIC_NAME), mod, 'json-' + datetime.now().strftime("%d-%H%M"))
     if not os.path.exists(file_path):
         os.makedirs(file_path)
@@ -134,7 +138,7 @@ def dump_problem_data(file_name, label_data, raw_perce_result, mod):
         problems_json_data = get_json_data(file_path)
     else:
         problems_json_data = {"task_vehicle": [], "tracks": {}}
-    problems_json_data["tracks"].update(raw_perce_result)
+    problems_json_data["tracks"].update(raw_perception_result)
     problems_json_data['filename'] = file_name
     problems_json_data["task_vehicle"].append(label_data)
     with open(file_path, 'w') as f:
@@ -179,43 +183,43 @@ def get_json_data(json_file):
         return json_data
 
 
-def get_match_img_one_json(label_jsons, perce_jsons):
+def get_match_img_one_json(label_jsons, perception_jsons):
     '''
     单一标注文件
     :label_jsons:[file]
-    :perce_jsons:[file1,file2,file3...]
+    :perception_jsons:[file1,file2,file3...]
     yield label_result,prece_result
     '''
     label_data = get_json_data(label_jsons[0])
     label_jsons_name = [temp["filename"].rsplit('.')[0] for temp in label_data]
-    perce_jsons = [file for file in perce_jsons if file.rsplit('/')[-1].split('.')[0] in label_jsons_name]
-    perce_jsons.sort(key=lambda x: x.rsplit('/', 1)[-1].rsplit('.')[0].rsplit('_')[-1].zfill(6))
-    perce_jsons.sort(key=lambda x: x.rsplit('/', 1)[0])
-    if not label_jsons or not perce_jsons:
+    perception_jsons = [file for file in perception_jsons if file.rsplit('/')[-1].split('.')[0] in label_jsons_name]
+    perception_jsons.sort(key=lambda x: x.rsplit('/', 1)[-1].rsplit('.')[0].rsplit('_')[-1].zfill(6))
+    perception_jsons.sort(key=lambda x: x.rsplit('/', 1)[0])
+    if not label_jsons or not perception_jsons:
         logger.info('无可匹配标注图片数据')
         yield None, None
         return
 
-    for perce_json in perce_jsons:
+    for perce_json in perception_jsons:
         for label_result in label_data:
             if perce_json.split('/')[-1].split('.')[0] == label_result["filename"].split('.')[0]:
-                perce_result = get_json_data(perce_json)
-                yield label_result, perce_result
+                perception_result = get_json_data(perce_json)
+                yield label_result, perception_result
                 break
 
 
-def get_match_img_more_json(label_jsons, perce_jsons):
+def get_match_img_more_json(label_jsons, perception_jsons):
     '''
     多标注文件
     :label_jsons:[file1,file2,file3...]
-    :perce_jsons:[file1,file2,file3...]
+    :perception_jsons:[file1,file2,file3...]
     yield label_result,prece_result
     '''
     label_jsons_name = [name.rsplit('/')[-1].split('.')[0] for name in label_jsons]
-    perce_jsons = [file for file in perce_jsons if file.split('/')[-1].split('.')[0] in label_jsons_name]
-    perce_jsons.sort(key=lambda x: x.split('/')[-1].split('.')[0].split('_')[-1].zfill(6))
+    perception_jsons = [file for file in perception_jsons if file.split('/')[-1].split('.')[0] in label_jsons_name]
+    perception_jsons.sort(key=lambda x: x.split('/')[-1].split('.')[0].split('_')[-1].zfill(6))
     label_jsons.sort(key=lambda x: x.split('/')[-1].split('.')[0].split('_')[-1].zfill(6))
-    perce_jsons = sorted(perce_jsons, key=lambda x: x.rsplit('_', 1)[0])
+    perception_jsons = sorted(perception_jsons, key=lambda x: x.rsplit('_', 1)[0])
     label_jsons = sorted(label_jsons, key=lambda x: x.rsplit('_', 1)[0])
 
     if not label_jsons or not label_jsons:
@@ -223,20 +227,20 @@ def get_match_img_more_json(label_jsons, perce_jsons):
         yield None, None
         return
 
-    for perce_json in perce_jsons:
+    for perce_json in perception_jsons:
         for label_json in label_jsons:
             if perce_json.split('/')[-1].split('.')[0] == label_json.split('/')[-1].split('.')[0]:
                 label_result = get_json_data(label_json)
-                perce_result = get_json_data(perce_json)
-                yield label_result, perce_result
+                perception_result = get_json_data(perce_json)
+                yield label_result, perception_result
                 break
 
 
 # 同一图片标注与检出障碍物匹配
-def get_match_obstacle_recall_side(label_result, perce_result):
+def get_match_obstacle_recall_side(label_result, perception_result):
     '''召回率单一标注文件目标障碍物匹配'''
-    raw_perce_result = copy.deepcopy(perce_result)
-    perce_result = perce_result["tracks"]
+    raw_perception_result = copy.deepcopy(perception_result)
+    perception_result = perception_result["tracks"]
     configs = Config.replay_configs()
     line_compensation = configs["using_cfg"]["line_compensation"]
     proportion = configs["using_cfg"]["proportion"]
@@ -266,12 +270,12 @@ def get_match_obstacle_recall_side(label_result, perce_result):
                 break
         if not is_in:
             continue
-        if not perce_result:
+        if not perception_result:
             yield label_data, None
             continue
 
         iou_result = {}
-        for id, perce_data in perce_result.items():
+        for id, perce_data in perception_result.items():
             boxB = perce_data["uv_bbox2d"]
             iou = bb_intersection_over_union(boxA, boxB)
             iou_result[id] = iou
@@ -279,18 +283,18 @@ def get_match_obstacle_recall_side(label_result, perce_result):
         iou_max_value = iou_max_item[1]
         iou_max_id = iou_max_item[0]
         if iou_max_value >= iou_benchmark:
-            yield label_data, perce_result[iou_max_id]
-            del perce_result[iou_max_id]
+            yield label_data, perception_result[iou_max_id]
+            del perception_result[iou_max_id]
         else:
             if label_data['tags']["class"] != 'wheel':
                 label_data['tags']["problem"] = 'FN'
-                dump_problem_data(label_result['filename'], label_data, raw_perce_result["tracks"], 'recall')
+                dump_problem_data(label_result['filename'], label_data, raw_perception_result["tracks"], 'recall')
             yield label_data, None
 
 
-def get_match_obstacle_precision_side(label_result, perce_result):
+def get_match_obstacle_precision_side(label_result, perception_result):
     '''准确率单一标注文件目标障碍物匹配'''
-    perce_result = perce_result["tracks"]
+    perception_result = perception_result["tracks"]
     attention_areas = label_result["task_attention_area"]
     configs = Config.replay_configs()
     line_compensation = configs["using_cfg"]["line_compensation"]
@@ -315,11 +319,11 @@ def get_match_obstacle_precision_side(label_result, perce_result):
             if is_in_poly(point, polygon):
                 is_in = True
                 break
-        if not perce_result:
+        if not perception_result:
             yield None, None
             return
         iou_result = {}
-        for id, perce_data in perce_result.items():
+        for id, perce_data in perception_result.items():
             boxB = perce_data["uv_bbox2d"]
             iou = bb_intersection_over_union(boxA, boxB)
             iou_result[id] = iou
@@ -328,12 +332,12 @@ def get_match_obstacle_precision_side(label_result, perce_result):
         iou_max_id = iou_max_item[0]
         if iou_max_value >= iou_benchmark:
             if int(occluded) == 0 and is_in:
-                yield label_data, perce_result[iou_max_id]
-            del perce_result[iou_max_id]
+                yield label_data, perception_result[iou_max_id]
+            del perception_result[iou_max_id]
             continue
 
-    if perce_result:
-        for key, perce_data in perce_result.items():
+    if perception_result:
+        for key, perce_data in perception_result.items():
             # if perce_data["uv_bbox2d"]["obstacle_bbox.width"] * perce_data["uv_bbox2d"]["obstacle_bbox.height"] < 100:
             #     continue
             if abs(perce_data["bbox3d"]["obstacle_pos_y"]) > 60:
@@ -365,15 +369,15 @@ def get_match_obstacle_precision_side(label_result, perce_result):
                     yield None, perce_data
 
 
-def get_match_obstacle_3d(label_result, perce_result):
+def get_match_obstacle_3d(label_result, perception_result):
     '''多文件目标障碍物匹配'''
-    perce_result = perce_result["tracks"]
+    perception_result = perception_result["tracks"]
     configs = Config.replay_configs()
     line_compensation = configs["using_cfg"]["line_compensation"]
     proportion = configs["using_cfg"]["proportion"]
     iou_benchmark = configs['iou']
     for label_data in label_result:
-        if not perce_result:
+        if not perception_result:
             continue
         boxA = {}
         boxA["obstacle_bbox.height"] = label_data["box_2d"]['h'] / proportion
@@ -382,7 +386,7 @@ def get_match_obstacle_3d(label_result, perce_result):
         boxA["obstacle_bbox.y"] = (label_data["box_2d"]['y'] + line_compensation) / proportion - boxA[
             "obstacle_bbox.height"] / 2
         iou_result = {}
-        for id, perce_data in perce_result.items():
+        for id, perce_data in perception_result.items():
             boxB = perce_data["uv_bbox2d"]
             iou = bb_intersection_over_union(boxA, boxB)
             iou_result[id] = iou
@@ -390,10 +394,10 @@ def get_match_obstacle_3d(label_result, perce_result):
         iou_max_value = iou_max_item[1]
         iou_max_id = iou_max_item[0]
         if iou_max_value >= iou_benchmark:
-            yield label_data, perce_result[iou_max_id]
-            del perce_result[iou_max_id]
+            yield label_data, perception_result[iou_max_id]
+            del perception_result[iou_max_id]
 
-    # perce_result = perce_result["tracks"]
+    # perception_result = perception_result["tracks"]
     # configs = Config.replay_configs()
     # line_compensation = configs["using_cfg"]["line_compensation"]
     # proportion = configs["using_cfg"]["proportion"]
@@ -423,10 +427,10 @@ def get_match_obstacle_3d(label_result, perce_result):
     #     if not is_in:
     #         continue
     #
-    #     if not perce_result:
+    #     if not perception_result:
     #         continue
     #     iou_result = {}
-    #     for id, perce_data in perce_result.items():
+    #     for id, perce_data in perception_result.items():
     #         boxB = perce_data["uv_bbox2d"]
     #         iou = bb_intersection_over_union(boxA, boxB)
     #         iou_result[id] = iou
@@ -434,8 +438,8 @@ def get_match_obstacle_3d(label_result, perce_result):
     #     iou_max_value = iou_max_item[1]
     #     iou_max_id = iou_max_item[0]
     #     if iou_max_value >= 0.5:
-    #         yield label_data, perce_result[iou_max_id]
-    #         del perce_result[iou_max_id]
+    #         yield label_data, perception_result[iou_max_id]
+    #         del perception_result[iou_max_id]
 
 
 def draw_plot(new_path, problem_json_data):
@@ -505,12 +509,12 @@ def add_track_id_helper(last_json_data, json_data, idx):
             idx += 1
     return json_data, idx
     # if iou_max_value >= iou_benchmark:
-    #     yield label_data, perce_result[iou_max_id]
-    #     del perce_result[iou_max_id]
+    #     yield label_data, perception_result[iou_max_id]
+    #     del perception_result[iou_max_id]
     # else:
     #     if label_data['tags']["class"] != 'wheel':
     #         label_data['tags']["problem"] = 'FN'
-    #         dump_problem_data(label_result['filename'], label_data, raw_perce_result["tracks"], 'recall')
+    #         dump_problem_data(label_result['filename'], label_data, raw_perception_result["tracks"], 'recall')
     #     yield label_data, None
 
 
@@ -604,4 +608,4 @@ def add_accel(track_file_path):
             json.dump(json_data, f, indent=4)
 
 
-logger = __init()
+logger = _init()

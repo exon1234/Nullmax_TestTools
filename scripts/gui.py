@@ -19,10 +19,10 @@ from scripts.common import utils
 from collections import OrderedDict
 
 
-def singleton(cls, *args, **kwargs):
+def singleton(cls):
     instances = {}
 
-    def get_instance():
+    def get_instance(*args, **kwargs):
         if cls not in instances:
             instances[cls] = cls(*args, **kwargs)
         return instances[cls]
@@ -632,30 +632,30 @@ class CaseSceneWindows(TemplateWindows):
     def case_sence_maker(self):
         column_list1, condition_list1 = self.form1.dump_scene_condition()
         column_list2, condition_list2 = self.form2.dump_scene_condition()
-        # column_list3, condition_list3 = self.form3.dump_scene_condition()
-        # column_list4, condition_list4 = self.form4.dump_scene_condition()
-        # column_list5, condition_list5 = self.form5.dump_scene_condition()
-        # column_list6, condition_list6 = self.form6.dump_scene_condition()
-        # column_list7, condition_list7 = self.form7.dump_scene_condition()
-        # columns = column_list1 + column_list2 + column_list3 + column_list4 + column_list5 + column_list6 + column_list6 + column_list7
-        # conditions = condition_list1 + condition_list2 + condition_list3 + condition_list3 + condition_list4 + condition_list5 + condition_list6 + condition_list7
+        column_list3, condition_list3 = self.form3.dump_scene_condition()
+        column_list4, condition_list4 = self.form4.dump_scene_condition()
+        column_list5, condition_list5 = self.form5.dump_scene_condition()
+        column_list6, condition_list6 = self.form6.dump_scene_condition()
+        column_list7, condition_list7 = self.form7.dump_scene_condition()
+        columns = column_list1 + column_list2 + column_list3 + column_list4 + column_list5 + column_list6 + column_list7
+        conditions = condition_list1 + condition_list2 + condition_list3 + condition_list4 + condition_list5 + condition_list6 + condition_list7
 
-        columns = column_list1
+        # columns = column_list1
+        # conditions = condition_list1
         columns.insert(0, "NO")
-        conditions = condition_list1
         df = pd.DataFrame(columns=columns)
         for i, pairs in enumerate(AllPairs(conditions)):
             if self.is_valid_combination(pairs):
                 df.loc[i] = [i] + pairs
-                print(pairs)
+                print(i, pairs)
         df.to_csv('1.csv', index=False)
 
     def is_valid_combination(self, conditions):
         excludes = []
-        for i in range(len(conditions)):
-            if conditions[i] != '无': excludes.extend(self.case_scene[conditions[i]]['exclude'])
-        for i in range(len(conditions)):
-            if conditions[i] != '无' and self.case_scene[conditions[i]]['id'] in excludes: return False
+        # for i in range(len(conditions)):
+        #     if conditions[i] != '无': excludes.extend(self.case_scene[conditions[i]]['exclude'])
+        # for i in range(len(conditions)):
+        #     if conditions[i] != '无' and self.case_scene[conditions[i]]['id'] in excludes: return False
         return True
 
     def btn_press1_clicked(self):
@@ -724,11 +724,12 @@ class SceneParamsWindows(TemplateWindows):
         for classify in self.scene_case.keys():
             classify_list = []
             for terms in self.scene_case[classify]:
-                if self.assembly[terms].isChecked() and self.scene_case[classify][terms]['invalid'] == 0:
+                if self.assembly[terms].isChecked():
+                    # if self.assembly[terms].isChecked() and self.scene_case[classify][terms]['invalid'] == 0:
                     classify_list.append(terms)
 
             if not classify_list:
-                classify_list.append('无')
+                classify_list.append('default')
             index_list.append(classify)
             condition_list.append(classify_list)
         return index_list, condition_list
@@ -801,11 +802,11 @@ class RecordProblemWindows(TemplateWindows):
         # 局部网络布局
         grid = QGridLayout()
         grid.addWidget(QLabel('测试人'), 1, 1, 1, 1), grid.addWidget(self.line_tester, 1, 2, 1, 1)
-        grid.addWidget(QLabel('车辆'), 1, 3, 1, 1), grid.addWidget(self.line_vehicel, 1, 4, 1, 1)
+        grid.addWidget(QLabel('测试车辆'), 1, 3, 1, 1), grid.addWidget(self.line_vehicel, 1, 4, 1, 1)
         grid.addWidget(QLabel('整包版本'), 1, 5, 1, 1), grid.addWidget(self.line_driving_version, 1, 6, 1, 1)
         grid.addWidget(QLabel('天气'), 1, 7, 1, 1), grid.addWidget(self.line_weather, 1, 8, 1, 1)
-        grid.addWidget(QLabel('道路类型'), 1, 9, 1, 1), grid.addWidget(self.line_road_level, 1, 10, 1, 1)
-        grid.addWidget(QLabel('功能大类'), 1, 11, 1, 1), grid.addWidget(self.line_func, 1, 12, 1, 1)
+        grid.addWidget(QLabel('测试路段'), 1, 9, 1, 1), grid.addWidget(self.line_road_level, 1, 10, 1, 1)
+        grid.addWidget(QLabel('功能类别'), 1, 11, 1, 1), grid.addWidget(self.line_func, 1, 12, 1, 1)
 
         # 局部网络布局
         g_box = QGridLayout()
@@ -843,6 +844,11 @@ class RecordProblemWindows(TemplateWindows):
         combox_result.append(self.line_weather.text())
         combox_result.append(self.line_road_level.text())
         combox_result.append(self.line_func.text())
+
+        combox_result.append('实车测试')
+        combox_result.append('缺陷问题')
+        combox_result.append(self.line_tester.text())
+
         return combox_result
 
     def init_problem_list_module(self):
@@ -854,7 +860,7 @@ class RecordProblemWindows(TemplateWindows):
         self._problem_list.setSelectionMode(QAbstractItemView.NoSelection)
         self._problem_list.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self._problem_list.setColumnCount(5)
-        self._problem_list.setHorizontalHeaderLabels(['NO', 'Date', 'Time', 'Problem', 'Describe'])
+        self._problem_list.setHorizontalHeaderLabels(['NO', 'Date', 'Time', 'Problem', 'Summary'])
 
     def append_problem_line(self):
         """
@@ -876,7 +882,7 @@ class RecordProblemWindows(TemplateWindows):
         df = note_vehicle_problems.get_all_problems()
         for row_count in range(self._problem_list.rowCount()):
             df.iloc[self.row_dict[str(row_count)], 4] = self._problem_list.cellWidget(row_count, 4).text()
-        df.iloc[df.shape[0] - 1, [5, 6, 9, 12, 13, 15]] = self.get_combox_text()
+        df.iloc[df.shape[0] - 1, [5, 6, 7, 10, 11, 13, 15, 17, 19]] = self.get_combox_text()
         df.to_excel(note_vehicle_problems.FILE_NAME, index=False, engine='openpyxl')
 
     def slot_show_main(self):
@@ -1011,7 +1017,7 @@ class ExtractDataWindows(TemplateWindows):
     def extract_problem(self):
         if self.excel_path and self.file_path:
             try:
-                note_vehicle_problems.ExtractMoudle(self.file_path, self.excel_path)()
+                note_vehicle_problems.ExtractModule(self.file_path, self.excel_path)()
             except:
                 utils.logger.info(traceback.format_exc())
 

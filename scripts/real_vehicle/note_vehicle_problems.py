@@ -5,18 +5,16 @@ import pandas as pd
 from scripts.common import utils
 
 # 记录实车问题
-base_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-day_name = datetime.now().strftime("%m_%d") + '_problems.xlsx'
-FILE_NAME = os.path.join(base_path, 'data', day_name)
-COLUMNS_IPX = ['NO', 'Date', 'Time', 'Problem', 'Describe',
-               '测试人', '车辆', 'MPD', 'MPI',
-               'auto-driving-version', 'planning-version', 'perception-version',
-               '天气', '道路类型', '项目类别', '功能大类',
-               '经纬度', '昼/夜 ', '车辆模式', '数据链接 ']
+
+FILE_NAME = utils.BASIC_NAME + 'problems.xlsx'
+COLUMNS_IPX = ['NO', 'Date', 'Time', 'Problem', 'Summary', '测试人', '测试车辆',
+               '整包版本', '规划版本', '感知版本', '天气', '测试路段', '项目类别', '功能类别',
+               '测试时段 ', '缺陷来源', '优先级', '问题类型', '严重度', '经办人', '缺陷描述',
+               '数据链接 ', '车辆模式', '经纬度', 'MPD', 'MPI', ]
 
 
 def problem_record(name):
-    def wapper():
+    def wrapper():
         utils.logger.info(datetime.now().strftime("%Y_%m_%d_%H_%M_%S") + name)
         if not os.path.exists(FILE_NAME):
             df = pd.DataFrame(columns=COLUMNS_IPX, index=None)
@@ -29,7 +27,7 @@ def problem_record(name):
         df.loc[num, 'Problem'] = name
         df.to_excel(FILE_NAME, index=False, engine='openpyxl')
 
-    return wapper
+    return wrapper
 
 
 def get_all_problems():
@@ -38,7 +36,7 @@ def get_all_problems():
 
 
 # 问题数据切片
-class ExtractMoudle(object):
+class ExtractModule(object):
     def __init__(self, file_path, excel_path):
         self.file_path = file_path
         self.excel_path = excel_path
@@ -59,9 +57,7 @@ class ExtractMoudle(object):
             matched_time = time_pattern.search(bag)
             if matched_time:
                 bag_start_time = matched_time.group()
-                bag_start_timestamp = int(
-                    time.mktime(time.strptime(bag_start_time,
-                                              "%Y-%m-%d-%H-%M-%S")))
+                bag_start_timestamp = int(time.mktime(time.strptime(bag_start_time, "%Y-%m-%d-%H-%M-%S")))
                 bag_end_timestamp = bag_start_timestamp + 300
             else:
                 try:

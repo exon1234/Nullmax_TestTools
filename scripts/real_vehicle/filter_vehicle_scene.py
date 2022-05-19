@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # 实车问题筛选
 import os
+import sys
 import time
-
 import pandas as pd
 from scripts.common import utils
 
@@ -18,325 +18,594 @@ def singleton(cls):
     return get_instance
 
 
-def get_vehicle_scene(file_path, func_list):
-    base_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-    file_name = os.path.join(base_path, 'data', "filter_scene" + '.xlsx')
-    if not os.path.exists(file_name):
+def get_vehicle_scene(filesPath, funcList):
+    # basePath = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    basePath = os.path.dirname(os.path.abspath(sys.argv[0]))
+    fileName = os.path.join(basePath, 'data', "SceneFilter" + '.xlsx')
+    if not os.path.exists(fileName):
         df = pd.DataFrame(columns=['NO', 'Date', 'Time', 'Problem'], index=None)
-        df.to_excel(file_name, index=False, engine='openpyxl')
+        df.to_excel(fileName, index=False, engine='openpyxl')
 
-    for bag_data, bag_path in utils.get_bag_data(file_path):
-        for func in func_list:
-            cls = func(file_name)
-            cls(bag_data, bag_path)
+    for bagData, bagPath in utils.get_bag_data(filesPath):
+        for func in funcList:
+            cls = func(fileName)
+            cls(bagData, bagPath)
 
 
 @utils.register('AEB触发场景', 'vehicle')
 @singleton
-class CountAEBTimes(object):
-    def __init__(self, file_name):
-        self.file_name = file_name
-        self.is_active = False
-        self.activate_num = 0
-        self.acceler_list = []
-        self.topic_list = ['/aeb/aebs_monitor']
+class AEBFilter(object):
+    """
+    AEB触发场景数据筛选
+    """
 
-    def __call__(self, bag_data, bag_path):
-        for topic, msg, t in bag_data.read_messages(topics=self.topic_list):
+    def __init__(self, fileName):
+        self.fileName = fileName
+        self.is_active = False
+        self.topicsList = ['/aeb/aebs_monitor']
+        self.accelerate_list = []
+
+    def __call__(self, bagData, bagPath):
+        for topic, msg, t in bagData.read_messages(topics=self.topicsList):
             if topic == '/aeb/aebs_monitor':
                 try:
-                    is_dbw = msg.ego_car_state.drive_mode
                     aeb_active = msg.aeb_command.aeb_status
-                    obstacel_in_path = msg.aeb_obstacle_in_path.position.x
+                    is_dbw = msg.ego_car_state.drive_mode
+                    obstacle_distance = msg.aeb_obstacle_in_path.position.x
                     linear_velocity = msg.ego_car_state.linear_velocity
                     TTC = msg.aeb_obstacle_in_path.ttc
-                    acceler_x = msg.ego_car_state.linear_acceleration
-                except:
-                    continue
-                data = pd.read_excel(self.file_name, encoding='utf-8')
-                num = data.shape[0]
+                    accelerate_x = msg.ego_car_state.linear_acceleration
+                except Exception as E:
+                    utils.logger.error(E)
+                    break
+
                 if aeb_active == 4 and self.is_active is False:
+                    self.is_active = True
+                    self.accelerate_list.append(accelerate_x)
+                    data = pd.read_excel(self.fileName)
+                    num = data.shape[0]
                     data_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t.to_sec()))
                     data.loc[num, 'NO'] = num + 1
                     data.loc[num, 'Date'] = data_time.split(' ')[0]
                     data.loc[num, 'Time'] = data_time.split(' ')[1]
-                    data.loc[num, 'BagPath'] = bag_path
+                    data.loc[num, 'BagPath'] = bagPath
                     data.loc[num, 'Problem'] = '触发AEB'
-                    data.loc[num, 'Obstracel_X'] = obstacel_in_path
-                    data.loc[num, 'velocity'] = int(linear_velocity * 3.6)
+                    data.loc[num, 'Distance'] = obstacle_distance
+                    data.loc[num, 'Velocity'] = int(linear_velocity * 3.6)
                     data.loc[num, 'TTC'] = round(TTC, 2)
                     data.loc[num, 'Drive_Mode'] = is_dbw
-                    self.is_active = True
-                    data.to_excel(self.file_name, index=False, engine='openpyxl')
-                    self.activate_num += 1
-                    self.acceler_list.append(acceler_x)
+                    data.to_excel(self.fileName, index=False, engine='openpyxl')
 
-                if aeb_active == 2 and self.is_active == True:
-                    data.loc[num, 'acceleration'] = max(self.acceler_list)
-                    self.acceler_list = []
+                if aeb_active == 2 and self.is_active is True:
+                    data = pd.read_excel(self.fileName)
+                    num = data.shape[0]
+                    data.loc[num, 'acceleration'] = max(self.accelerate_list)
+                    self.accelerate_list = []
                     self.is_active = False
-        data = pd.read_excel(self.file_name)
-        data.loc[1, 'activate_count'] = self.activate_num
-        return
-# def get_vehicle_scene(bag_path, func_list):
-#     base_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-#     file_name = os.path.join(base_path, 'data', "filter_scene" + '.xlsx')
-#     if not os.path.exists(file_name):
-#         df = pd.DataFrame(columns=['NO', 'Date', 'Time', 'Problem'], index=None)
-#         df.to_excel(file_name, index=False, engine='openpyxl')
-#     for func in func_list:
-#         func(bag_path, file_name)
-#         # eval(func)(bag_path, file_name)
-
-# @utils.register('AEB触发场景', 'vehicle')
-# def CountAEBTimes(file_path, file_name):
-#     '''
-#     触发AEB场景数据筛选
-#     '''
-#
-#     topic_list = ['/aeb/aebs_monitor']
-#     is_active = False
-#     activate_num = 0
-#     acceler_list = []
-#     for topic, msg, t, bag_path, bag_count in utils.get_bag_msg(file_path, topic_list):
-#         if topic == '/aeb/aebs_monitor':
-#             try:
-#                 is_dbw = msg.ego_car_state.drive_mode
-#                 aeb_active = msg.aeb_command.aeb_status
-#                 obstacel_in_path = msg.aeb_obstacle_in_path.position.x
-#                 linear_velocity = msg.ego_car_state.linear_velocity
-#                 TTC = msg.aeb_obstacle_in_path.ttc
-#                 acceler_x = msg.ego_car_state.linear_acceleration
-#             except:
-#                 continue
-#             if aeb_active == 4 and is_active is False:
-#                 data = pd.read_excel(file_name, encoding='utf-8')
-#                 data_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t.to_sec()))
-#                 num = data.shape[0]
-#                 data.loc[num, 'NO'] = num + 1
-#                 data.loc[num, 'Date'] = data_time.split(' ')[0]
-#                 data.loc[num, 'Time'] = data_time.split(' ')[1]
-#                 data.loc[num, 'BagPath'] = bag_path
-#                 data.loc[num, 'Problem'] = '触发AEB'
-#                 data.loc[num, 'Obstracel_X'] = obstacel_in_path
-#                 data.loc[num, 'velocity'] = int(linear_velocity * 3.6)
-#                 data.loc[num, 'TTC'] = round(TTC, 2)
-#                 data.loc[num, 'Drive_Mode'] = is_dbw
-#                 is_active = True
-#                 data.to_excel(file_name, index=False, engine='openpyxl')
-#                 activate_num += 1
-#                 acceler_list.append(acceler_x)
-#
-#             if aeb_active == 2 and is_active == True:
-#                 data.loc[num, 'acceleration'] = max(acceler_list)
-#                 acceler_list = []
-#                 is_active = False
-#     data = pd.read_excel(file_name, encoding='utf-8')
-#     data.loc[1, 'activate_count'] = activate_num
-#     data.loc[1, 'time'] = bag_count * 5
-#     return
 
 
-# @utils.register('MEB触发场景', 'vehicle')
-# def CountMEBTimes(file_path, file_name):
-#     '''
-#     触发MEB场景数据筛选
-#     '''
-#
-#     topic_list = ['/aeb/aebs_monitor']
-#     is_active = False
-#     activate_num = 0
-#     for topic, msg, t, bag_path, bag_count in utils.get_bag_msg(file_path, topic_list):
-#         if topic == '/aeb/aebs_monitor':
-#             try:
-#                 is_dbw = msg.ego_car_state.drive_mode
-#                 meb_active = msg.meb_command.meb_status
-#                 obstacel_in_path = msg.meb_obstacle_in_path.position.x
-#                 linear_velocity = msg.ego_car_state.linear_velocity
-#                 TTC = msg.meb_obstacle_in_path.ttc
-#             except:
-#                 continue
-#             if meb_active == 4 and is_active is False:
-#                 data = pd.read_excel(file_name, encoding='utf-8')
-#                 data_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t.to_sec()))
-#                 num = data.shape[0]
-#                 data.loc[num, 'NO'] = num + 1
-#                 data.loc[num, 'Date'] = data_time.split(' ')[0]
-#                 data.loc[num, 'Time'] = data_time.split(' ')[1]
-#                 data.loc[num, 'BagPath'] = bag_path
-#                 data.loc[num, 'Problem'] = '触发MEB'
-#                 data.loc[num, 'Obstracel_X'] = obstacel_in_path
-#                 data.loc[num, 'velocity'] = int(linear_velocity * 3.6)
-#                 data.loc[num, 'TTC'] = round(TTC, 2)
-#                 data.loc[num, 'Drive_Mode'] = is_dbw
-#                 is_active = True
-#                 data.to_excel(file_name, index=False, engine='openpyxl')
-#                 activate_num += 1
-#             if meb_active == 2 and is_active is True:
-#                 is_active = False
-#     data = pd.read_excel(file_name, encoding='utf-8')
-#     data.loc[1, 'activate_count'] = activate_num
-#     data.loc[1, 'time'] = bag_count * 5
-#     return
-#
-#
-# @utils.register('TSR场景', 'vehicle')
-# def cipv_front_lost(file_path, file_name):
-#     '''
-#     交通标志场景数据筛选
-#     '''
-#     topic_list = ['/perception/traffic_signs']
-#     last_time = 0
-#     for topic, msg, t, bag_path, bag_count in utils.get_bag_msg(file_path, topic_list):
-#         if topic == '/perception/traffic_signs':
-#             traffic_signs = msg.traffic_signs
-#             now_time = t.to_sec()
-#             if now_time - last_time < 20:
-#                 continue
-#
-#             if len(traffic_signs) > 0:
-#                 last_time = now_time
-#                 data = pd.read_excel(file_name)
-#                 data_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t.to_sec()))
-#                 num = data.shape[0]
-#                 data.loc[num, 'NO'] = num + 1
-#                 data.loc[num, 'Date'] = data_time.split(' ')[0]
-#                 data.loc[num, 'BagPath'] = bag_path
-#                 data.loc[num, 'Time'] = data_time.split(' ')[1]
-#                 data.loc[num, 'Problem'] = '交通标志牌'
-#                 data.to_excel(file_name, index=False, engine='openpyxl')
-#
-#
-# @utils.register('示例', 'vehicle')
-# def CountMEBTimes(file_path, file_name):
-#     '''
-#     示例
-#     '''
-#     pass
-#     topic_list = ['/aeb/aebs_monitor']
-#     is_active = False
-#     activate_num = 0
-#     for topic, msg, t, bag_path, bag_count in utils.get_bag_msg(file_path, topic_list):
-#         if topic == '/aeb/aebs_monitor':
-#             try:
-#                 is_dbw = msg.ego_car_state.drive_mode
-#                 meb_active = msg.meb_command.meb_status
-#                 obstacel_in_path = msg.meb_obstacle_in_path.position.x
-#                 linear_velocity = msg.ego_car_state.linear_velocity
-#                 TTC = msg.meb_obstacle_in_path.ttc
-#             except:
-#                 continue
-#             if meb_active == 4 and is_active == False:
-#                 data = pd.read_excel(file_name, encoding='utf-8')
-#                 data_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t.to_sec()))
-#                 num = data.shape[0]
-#                 data.loc[num, 'NO'] = num + 1
-#                 data.loc[num, 'Date'] = data_time.split(' ')[0]
-#                 data.loc[num, 'Time'] = data_time.split(' ')[1]
-#                 data.loc[num, 'BagPath'] = bag_path
-#                 data.loc[num, 'Problem'] = '触发MEB'
-#                 data.loc[num, 'Obstracel_X'] = obstacel_in_path
-#                 data.loc[num, 'velocity'] = int(linear_velocity * 3.6)
-#                 data.loc[num, 'TTC'] = round(TTC, 2)
-#                 data.loc[num, 'Drive_Mode'] = is_dbw
-#                 is_active = True
-#                 data.to_excel(file_name, index=False, engine='openpyxl')
-#                 activate_num += 1
-#             if meb_active == 2 and is_active == True:
-#                 is_active = False
-#     data = pd.read_excel(file_name, encoding='utf-8')
-#     data.loc[1, 'activate_count'] = activate_num
-#     data.loc[1, 'time'] = bag_count * 5
-#     return
-#
-#
-# @utils.register('类别错检', 'vehicle')
-# def cipv_front_error(file_path, file_name):
-#     '''
-#     目标类型跳变场景筛选
-#     '''
-#     topic_list = ['/planning/vehicle_monitor']
-#     old_obstacle_in_path_id = None
-#     old_obstacle_in_path_type = None
-#     last_time = 0
-#     for topic, msg, t, bag_path, bag_count in utils.get_bag_msg(file_path, topic_list):
-#         if topic == '/planning/vehicle_monitor':
-#             new_obstacle_in_path_id = msg.obstacle_state.obstacle_in_path.id
-#             new_obstacle_in_path_type = msg.obstacle_state.obstacle_in_path.type
-#             obstacel_in_path_x = msg.obstacle_state.obstacle_in_path.position.x
-#             if old_obstacle_in_path_id != new_obstacle_in_path_id and old_obstacle_in_path_type != new_obstacle_in_path_type:
-#                 old_obstacle_in_path_id = new_obstacle_in_path_id
-#                 old_obstacle_in_path_type = new_obstacle_in_path_type
-#             if old_obstacle_in_path_id == new_obstacle_in_path_id and old_obstacle_in_path_type != new_obstacle_in_path_type:
-#                 if new_obstacle_in_path_type == 0:
-#                     continue
-#                 old_obstacle_in_path_type = new_obstacle_in_path_type
-#                 now_time = t.to_sec()
-#                 if now_time - last_time < 1.5 or obstacel_in_path_x > 80:
-#                     continue
-#                 last_time = now_time
-#                 data = pd.read_excel(file_name, encoding='utf-8')
-#                 data_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t.to_sec()))
-#                 num = data.shape[0]
-#                 data.loc[num, 'NO'] = num + 1
-#                 data.loc[num, 'Date'] = data_time.split(' ')[0]
-#                 data.loc[num, 'Time'] = data_time.split(' ')[1]
-#                 data.loc[num, 'BagPath'] = bag_path
-#                 data.loc[num, 'Problem'] = '检测类别跳变'
-#                 data.loc[num, 'Obstracel_X'] = obstacel_in_path_x
-#                 data.to_excel(file_name, index=False, engine='openpyxl')
-#
-#
-# @utils.register('目标漏检', 'vehicle')
-# def cipv_front_lost(file_path, file_name):
-#     '''
-#     目标漏检场景筛选
-#     '''
-#     topic_list = ['/input/perception/obstacle_list', '/perception/obstacle_list']
-#     old_cipv_id = None
-#     last_cipv_id = None
-#     last_time = 0
-#     last_problem_time = 0
-#     for topic, msg, t, bag_path, bag_count in utils.get_bag_msg(file_path, topic_list):
-#         if topic == '/input/perception/obstacle_list' or topic == '/perception/obstacle_list':
-#             new_cipv_id = msg.cipv_id
-#             tracks = msg.tracks
-#             now_time = t.to_sec()
-#             if old_cipv_id != new_cipv_id:
-#                 if (now_time - last_time) <= 1 and last_cipv_id == new_cipv_id and (
-#                         new_cipv_id not in old_id_list) and new_cipv_id != 0 and (now_time - last_problem_time) > 2:
-#                     for i in range(len(tracks)):
-#                         if tracks[i].id == new_cipv_id:
-#                             last_problem_time = now_time
-#                             cipv_x = tracks[i].position.x
-#                             data = pd.read_excel(file_name, encoding='utf-8')
-#                             data_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t.to_sec()))
-#                             num = data.shape[0]
-#                             data.loc[num, 'NO'] = num + 1
-#                             data.loc[num, 'Date'] = data_time.split(' ')[0]
-#                             data.loc[num, 'BagPath'] = bag_path
-#                             data.loc[num, 'Time'] = data_time.split(' ')[1]
-#                             data.loc[num, 'Problem'] = '检测目标漏检'
-#                             data.loc[num, 'Obstracel_X'] = cipv_x
-#                             data.to_excel(file_name, index=False, engine='openpyxl')
-#                             break
-#                 last_cipv_id = old_cipv_id
-#                 old_cipv_id = new_cipv_id
-#                 last_time = now_time
-#             tracks_id_list = []
-#             if len(tracks) > 0:
-#                 [tracks_id_list.append(tracks[i].id) for i in range(len(tracks))]
-#             old_id_list = tracks_id_list
-#
-#
+@utils.register('MEB触发场景', 'vehicle')
+@singleton
+class MEBFilter(object):
+    """
+    MEB触发场景数据筛选
+    """
+
+    def __init__(self, fileName):
+        self.fileName = fileName
+        self.is_active = False
+        self.topicsList = ['/aeb/aebs_monitor']
+        self.accelerate_list = []
+
+    def __call__(self, bagData, bagPath):
+        for topic, msg, t in bagData.read_messages(topics=self.topicsList):
+            if topic == '/aeb/aebs_monitor':
+                try:
+                    is_dbw = msg.ego_car_state.drive_mode
+                    meb_active = msg.meb_command.meb_status
+                    obstacle_distance = msg.aeb_obstacle_in_path.position.x
+                    TTC = msg.aeb_obstacle_in_path.ttc
+                    linear_velocity = msg.ego_car_state.linear_velocity
+                    accelerate_x = msg.ego_car_state.linear_acceleration
+                except Exception as E:
+                    utils.logger.error(E)
+                    break
+
+                if meb_active == 4 and self.is_active is False:
+                    self.is_active = True
+                    self.accelerate_list.append(accelerate_x)
+                    data = pd.read_excel(self.fileName)
+                    num = data.shape[0]
+                    data_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t.to_sec()))
+                    data.loc[num, 'NO'] = num + 1
+                    data.loc[num, 'Date'] = data_time.split(' ')[0]
+                    data.loc[num, 'Time'] = data_time.split(' ')[1]
+                    data.loc[num, 'BagPath'] = bagPath
+                    data.loc[num, 'Problem'] = '触发MEB'
+                    data.loc[num, 'Distance'] = obstacle_distance
+                    data.loc[num, 'Velocity'] = int(linear_velocity * 3.6)
+                    data.loc[num, 'TTC'] = round(TTC, 2)
+                    data.loc[num, 'Drive_Mode'] = is_dbw
+                    data.to_excel(self.fileName, index=False, engine='openpyxl')
+
+                if meb_active == 2 and self.is_active is True:
+                    data = pd.read_excel(self.fileName)
+                    num = data.shape[0]
+                    data.loc[num, 'acceleration'] = max(self.accelerate_list)
+                    self.accelerate_list = []
+                    self.is_active = False
+
+
+@utils.register('TSR触发场景', 'vehicle')
+@singleton
+class TSRFilter(object):
+    """
+    交通标志场景数据筛选
+    """
+
+    def __init__(self, fileName):
+        self.fileName = fileName
+        self.topicsList = ['/perception/traffic_signs']
+        self.last_time = 0
+
+    def __call__(self, bagData, bagPath):
+        for topic, msg, t in bagData.read_messages(topics=self.topicsList):
+            if topic == '/perception/traffic_signs':
+                try:
+                    traffic_signs = msg.traffic_signs
+                    now_time = t.to_sec()
+                except Exception as E:
+                    utils.logger.error(E)
+                    break
+
+                if now_time - self.last_time < 20:
+                    continue
+
+                if len(traffic_signs) > 0:
+                    self.last_time = now_time
+                    data = pd.read_excel(self.fileName)
+                    data_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t.to_sec()))
+                    num = data.shape[0]
+                    data.loc[num, 'NO'] = num + 1
+                    data.loc[num, 'Date'] = data_time.split(' ')[0]
+                    data.loc[num, 'BagPath'] = bagPath
+                    data.loc[num, 'Time'] = data_time.split(' ')[1]
+                    data.loc[num, 'Problem'] = '交通标志牌'
+                    data.to_excel(self.fileName, index=False, engine='openpyxl')
+
+
+@utils.register('TLI触发场景', 'vehicle')
+@singleton
+class TLIFilter(object):
+    """
+    交通灯场景数据筛选
+    """
+
+    def __init__(self, fileName):
+        self.fileName = fileName
+        self.topicsList = ['/perception/traffic_lights']
+        self.last_time = 0
+
+    def __call__(self, bagData, bagPath):
+        for topic, msg, t in bagData.read_messages(topics=self.topicsList):
+            if topic == '/perception/traffic_lights':
+                try:
+                    traffic_signs = msg.traffic_signals
+                    now_time = t.to_sec()
+                except Exception as E:
+                    utils.logger.error(E)
+                    break
+
+                if now_time - self.last_time < 20:
+                    continue
+
+                if len(traffic_signs) > 0:
+                    self.last_time = now_time
+                    data = pd.read_excel(self.fileName)
+                    data_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t.to_sec()))
+                    num = data.shape[0]
+                    data.loc[num, 'NO'] = num + 1
+                    data.loc[num, 'Date'] = data_time.split(' ')[0]
+                    data.loc[num, 'BagPath'] = bagPath
+                    data.loc[num, 'Time'] = data_time.split(' ')[1]
+                    data.loc[num, 'Problem'] = '交通灯'
+                    data.to_excel(self.fileName, index=False, engine='openpyxl')
+
+
+@utils.register('感知错测类别', 'vehicle')
+@singleton
+class IncorrectSenseFilter(object):
+    """
+    感知检测目标类型跳变场景筛选
+    """
+
+    def __init__(self, fileName):
+        self.fileName = fileName
+        self.topicsList = ['/planning/vehicle_monitor']
+        self.last_obstacle_in_path_id = None
+        self.last_obstacle_in_path_type = None
+        self.last_time = 0
+
+    def __call__(self, bagData, bagPath):
+        for topic, msg, t in bagData.read_messages(topics=self.topicsList):
+            if topic == '/planning/vehicle_monitor':
+                try:
+                    new_obstacle_in_path_id = msg.obstacle_state.obstacle_in_path.id
+                    new_obstacle_in_path_type = msg.obstacle_state.obstacle_in_path.type
+                    obstacle_in_path_x = msg.obstacle_state.obstacle_in_path.position.x
+                    now_time = t.to_sec()
+                except Exception as E:
+                    utils.logger.error(E)
+                    break
+
+                if self.last_obstacle_in_path_id != new_obstacle_in_path_id and (
+                        self.last_obstacle_in_path_type != new_obstacle_in_path_type):
+                    self.last_obstacle_in_path_id = new_obstacle_in_path_id
+                    self.last_obstacle_in_path_type = new_obstacle_in_path_type
+
+                if self.last_obstacle_in_path_id == new_obstacle_in_path_id and (
+                        self.last_obstacle_in_path_type != new_obstacle_in_path_type):
+                    if new_obstacle_in_path_type == 0:
+                        continue
+                    self.last_obstacle_in_path_type = new_obstacle_in_path_type
+                    if now_time - self.last_time < 5 or obstacle_in_path_x > 80:
+                        continue
+
+                    self.last_time = now_time
+                    data = pd.read_excel(self.fileName)
+                    data_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t.to_sec()))
+                    num = data.shape[0]
+                    data.loc[num, 'NO'] = num + 1
+                    data.loc[num, 'Date'] = data_time.split(' ')[0]
+                    data.loc[num, 'Time'] = data_time.split(' ')[1]
+                    data.loc[num, 'BagPath'] = bagPath
+                    data.loc[num, 'Problem'] = '检测类别跳变'
+                    data.loc[num, 'Distance'] = obstacle_in_path_x
+                    data.to_excel(self.fileName, index=False, engine='openpyxl')
+
+
+@utils.register('感知漏检目标', 'vehicle')
+@singleton
+class OmissionSenseFilter(object):
+    """
+    感知漏检障碍物目标场景筛选
+    """
+
+    def __init__(self, fileName):
+        self.fileName = fileName
+        self.topicsList = ['/input/perception/obstacle_list', '/perception/obstacle_list']
+        self.last_cipv_id = None
+        self.last_cipv_time = 0
+        self.previous_last_cipv_id = None
+        self.last_time = 0
+        self.before_tracks = []
+
+    def __call__(self, bagData, bagPath):
+        for topic, msg, t in bagData.read_messages(topics=self.topicsList):
+            if topic == '/input/perception/obstacle_list' or topic == '/perception/obstacle_list':
+                try:
+                    new_cipv_id = msg.cipv_id
+                    tracks = msg.tracks
+                    now_time = t.to_sec()
+                except Exception as E:
+                    utils.logger.error(E)
+                    break
+
+                if self.last_cipv_id != new_cipv_id:
+                    if now_time - self.last_time < 10 or now_time - self.last_cipv_time > 0.8 or new_cipv_id != 0:
+                        pass
+
+                    elif self.previous_last_cipv_id == new_cipv_id and new_cipv_id not in self.before_tracks:
+                        for i in range(len(tracks)):
+                            if tracks[i].id == new_cipv_id:
+                                self.last_problem_time = now_time
+                                cipv_x = tracks[i].poscontinueition.x
+                                data = pd.read_excel(self.fileName)
+                                data_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t.to_sec()))
+                                num = data.shape[0]
+                                data.loc[num, 'NO'] = num + 1
+                                data.loc[num, 'Date'] = data_time.split(' ')[0]
+                                data.loc[num, 'BagPath'] = bagPath
+                                data.loc[num, 'Time'] = data_time.split(' ')[1]
+                                data.loc[num, 'Problem'] = '目标漏检'
+                                data.loc[num, 'Distance'] = cipv_x
+                                data.to_excel(self.fileName, index=False, engine='openpyxl')
+                                break
+                    self.last_cipv_time = now_time
+                    self.previous_last_cipv_id = self.last_cipv_id
+                    self.last_cipv_time = new_cipv_id
+
+                self.before_tracks = []
+                if len(tracks) > 0:
+                    [self.before_tracks.append(tracks[i].id) for i in range(len(tracks))]
+
+
+@utils.register('cutin场景', 'vehicle')
+@singleton
+class CutInFilter(object):
+    """
+    cutin场景数据筛选
+    """
+
+    def __init__(self, fileName):
+        self.fileName = fileName
+        self.topicsList = ['/planning/vehicle_monitor']
+        self.is_active = False
+        self.last_time = 0
+
+    def __call__(self, bagData, bagPath):
+        for topic, msg, t in bagData.read_messages(topics=self.topicsList):
+            if topic == '/planning/vehicle_monitor':
+                try:
+                    obstacle_in_path = msg.obstacle_state.obstacle_in_path.position.x
+                    drive_mode = msg.ego_car_state.drive_mode
+                    cut_in_and_out = msg.obstacle_state.obstacle_in_path.cut_in_and_out
+                    linear_velocity = msg.ego_car_state.linear_velocity
+                    TTC = msg.obstacle_state.obstacle_in_path.ttc
+                    now_time = t.to_sec()
+                except Exception as E:
+                    utils.logger.error(E)
+                    break
+
+                if now_time - self.last_time < 30:
+                    continue
+
+                if cut_in_and_out == 3 and drive_mode == 3 and self.is_active is False and TTC <= 3.5:
+                    self.is_active = True
+                    self.last_time = now_time
+                    data = pd.read_excel(self.fileName)
+                    data_time = time.strftime("%Y%m%d %H:%M:%S", time.localtime(t.to_sec()))
+                    num = data.shape[0]
+                    data.loc[num, 'NO'] = num + 1
+                    data.loc[num, 'Date'] = data_time.split(' ')[0]
+                    data.loc[num, 'Time'] = data_time.split(' ')[1]
+                    data.loc[num, 'BagPath'] = bagPath
+                    data.loc[num, 'Problem'] = 'CUTIN场景'
+                    data.loc[num, 'Distance'] = obstacle_in_path
+                    data.loc[num, 'Velocity'] = int(linear_velocity * 3.6)
+                    data.loc[num, 'TTC'] = round(TTC, 2)
+                    data.to_excel(self.fileName, index=False, engine='openpyxl')
+
+                if cut_in_and_out != 3 and self.is_active is True:
+                    self.is_active = False
+
+
+@utils.register('重加速场景', 'vehicle')
+@singleton
+class AcceleratedFilter(object):
+    """
+    重加速场景筛选
+    """
+
+    def __init__(self, fileName):
+        self.fileName = fileName
+        self.topicsList = ['/planning/vehicle_monitor']
+        self.is_active = False
+        self.last_time = 0
+
+    def __call__(self, bagData, bagPath):
+        for topic, msg, t in bagData.read_messages(topics=self.topicsList):
+            try:
+                linear_acceleration = msg.ego_car_state.linear_acceleration
+                drive_mode = msg.ego_car_state.drive_mode
+                obstacle_distance = msg.obstacle_state.obstacle_in_path.position.x
+                linear_velocity = msg.ego_car_state.linear_velocity
+                TTC = msg.obstacle_state.obstacle_in_path.ttc
+                now_time = t.to_sec()
+            except Exception as E:
+                utils.logger.error(E)
+                break
+
+            if now_time - self.last_time < 5:
+                continue
+
+            if linear_acceleration <= -3 and self.is_active is False and drive_mode != 0:
+                self.is_active = True
+                self.last_time = now_time
+                data = pd.read_excel(self.fileName)
+                data_time = time.strftime("%Y%m%d %H:%M:%S", time.localtime(t.to_sec()))
+                num = data.shape[0]
+                data.loc[num, 'NO'] = num + 1
+                data.loc[num, 'Date'] = data_time.split(' ')[0]
+                data.loc[num, 'Time'] = data_time.split(' ')[1]
+                data.loc[num, 'BagPath'] = bagPath
+                data.loc[num, 'Problem'] = '重刹'
+                data.loc[num, 'Distance'] = obstacle_distance
+                data.loc[num, 'Velocity'] = int(linear_velocity * 3.6)
+                data.loc[num, 'TTC'] = round(TTC, 2)
+
+            if linear_acceleration >= 0 and self.is_active is True:
+                self.is_active = False
+
+
+@utils.register('大曲率弯道', 'vehicle')
+@singleton
+class AcceleratedFilter(object):
+    """
+    弯道场景筛选
+    """
+
+    def __init__(self, fileName):
+        self.fileName = fileName
+        self.topicsList = ['/planning/vehicle_monitor', ]
+        self.is_active = False
+        self.last_time = 0
+
+    def __call__(self, bagData, bagPath):
+        for topic, msg, t in bagData.read_messages(topics=self.topicsList):
+            try:
+                lane_quality = msg.lane_state.fused_lane_array.left_lane.quality
+                lane_curv = msg.lane_state.fused_lane_array.left_lane.curvature_parameter_c2
+                now_time = t.to_sec()
+            except Exception as E:
+                utils.logger.error(E)
+                break
+
+            if now_time - self.last_time < 180:
+                continue
+
+            if lane_quality == 3 and lane_curv > 0.015 and self.is_active is False:
+                self.is_active = True
+                self.last_time = now_time
+                data = pd.read_excel(self.fileName)
+                data_time = time.strftime("%Y%m%d %H:%M:%S", time.localtime(t.to_sec()))
+                num = data.shape[0]
+                data.loc[num, 'NO'] = num + 1
+                data.loc[num, 'Date'] = data_time.split(' ')[0]
+                data.loc[num, 'Time'] = data_time.split(' ')[1]
+                data.loc[num, 'BagPath'] = bagPath
+                data.loc[num, 'Problem'] = '急弯'
+
+            if lane_curv < 0.001 and self.is_active is True:
+                self.is_active = False
+
+
+@utils.register('车道线质量差', 'vehicle')
+@singleton
+class AcceleratedFilter(object):
+    """
+    车道线质量较差场景筛选
+    """
+
+    def __init__(self, fileName):
+        self.fileName = fileName
+        self.topicsList = ['/planning/vehicle_monitor']
+        self.is_active = False
+        self.last_time = 0
+
+    def __call__(self, bagData, bagPath):
+        for topic, msg, t in bagData.read_messages(topics=self.topicsList):
+            try:
+                lane_quality = msg.lane_state.fused_lane_array.left_lane.quality
+                now_time = t.to_sec()
+            except Exception as E:
+                utils.logger.error(E)
+                break
+
+            if now_time - self.last_time < 60:
+                continue
+
+            if 0 < lane_quality < 3 and self.is_active is False:
+                self.is_active = True
+                self.last_time = now_time
+                data = pd.read_excel(self.fileName)
+                data_time = time.strftime("%Y%m%d %H:%M:%S", time.localtime(t.to_sec()))
+                num = data.shape[0]
+                data.loc[num, 'NO'] = num + 1
+                data.loc[num, 'Date'] = data_time.split(' ')[0]
+                data.loc[num, 'Time'] = data_time.split(' ')[1]
+                data.loc[num, 'BagPath'] = bagPath
+                data.loc[num, 'Problem'] = '车道线质量差'
+
+            if lane_quality >= 3 and self.is_active is True:
+                self.is_active = False
+
+
+@utils.register('距离前车过近', 'vehicle')
+@singleton
+class DangerDistanceFilter(object):
+    '''
+    危险驾驶，距离前车过近
+    '''
+
+    def __init__(self, fileName):
+        self.fileName = fileName
+        self.topicsList = ['/planning/vehicle_monitor']
+        self.is_active = False
+        self.last_time = 0
+
+    def __call__(self, bagData, bagPath):
+        for topic, msg, t in bagData.read_messages(topics=self.topicsList):
+            if topic == '/planning/vehicle_monitor':
+                try:
+                    obstacle_in_path = msg.obstacle_state.obstacle_in_path.position.x
+                    drive_mode = msg.ego_car_state.drive_mode
+                    cut_in_and_out = msg.obstacle_state.obstacle_in_path.cut_in_and_out
+                    linear_velocity = msg.ego_car_state.linear_velocity
+                    TTC = msg.obstacle_state.obstacle_in_path.ttc
+                    now_time = t.to_sec()
+                except Exception as E:
+                    utils.logger.error(E)
+                    break
+
+                if now_time - self.last_time < 60:
+                    continue
+
+                if cut_in_and_out == 0 and drive_mode == 3 and self.is_active is False and obstacle_in_path <= 10:
+                    self.is_active = True
+                    self.last_time = now_time
+                    data = pd.read_excel(self.fileName)
+                    data_time = time.strftime("%Y%m%d %H:%M:%S", time.localtime(t.to_sec()))
+                    num = data.shape[0]
+                    data.loc[num, 'NO'] = num + 1
+                    data.loc[num, 'Date'] = data_time.split(' ')[0]
+                    data.loc[num, 'Time'] = data_time.split(' ')[1]
+                    data.loc[num, 'BagPath'] = bagPath
+                    data.loc[num, 'type'] = '距前车过近'
+                    data.loc[num, 'Distance'] = obstacle_in_path
+                    data.loc[num, 'Velocity'] = int(linear_velocity * 3.6)
+                    data.loc[num, 'TTC'] = round(TTC, 2)
+                if obstacle_in_path >= 20 and self.is_active is True:
+                    self.is_active = False
+
+
+@utils.register('车道保持不居中', 'vehicle')
+@singleton
+class LaneDeviateFilter(object):
+    '''
+    车道保持不居中
+    '''
+
+    def __init__(self, fileName):
+        self.fileName = fileName
+        self.topicsList = ['/planning/vehicle_monitor']
+        self.is_active = False
+        self.last_time = 0
+
+    def __call__(self, bagData, bagPath):
+
+        for topic, msg, t in bagData.read_messages(topics=self.topicsList):
+            if topic == '/planning/vehicle_monitor':
+                try:
+                    obstacle_in_path = msg.obstacle_state.obstacle_in_path.position.x
+                    drive_mode = msg.ego_car_state.drive_mode
+                    cut_in_and_out = msg.obstacle_state.obstacle_in_path.cut_in_and_out
+                    linear_velocity = msg.ego_car_state.linear_velocity
+                    TTC = msg.obstacle_state.obstacle_in_path.ttc
+                    now_time = t.to_sec()
+                except Exception as E:
+                    utils.logger.error(E)
+                    break
+
+                if now_time - self.last_time < 60:
+                    continue
+
+                if cut_in_and_out == 0 and drive_mode == 3 and self.is_active is False and obstacle_in_path <= 10:
+                    self.is_active = True
+                    self.last_time = now_time
+                    data = pd.read_excel(self.fileName)
+                    data_time = time.strftime("%Y%m%d %H:%M:%S", time.localtime(t.to_sec()))
+                    num = data.shape[0]
+                    data.loc[num, 'NO'] = num + 1
+                    data.loc[num, 'Date'] = data_time.split(' ')[0]
+                    data.loc[num, 'Time'] = data_time.split(' ')[1]
+                    data.loc[num, 'BagPath'] = bagPath
+                    data.loc[num, 'type'] = '距前车过近'
+                    data.loc[num, 'Distance'] = obstacle_in_path
+                    data.loc[num, 'Velocity'] = int(linear_velocity * 3.6)
+                    data.loc[num, 'TTC'] = round(TTC, 2)
+
+                if obstacle_in_path >= 20 and self.is_active is True:
+                    self.is_active = False
+
 # @utils.register('测距误差统计', 'vehicle')
-# def cipv_distance_front(file_path, file_name):
+# def cipv_distance_front(file_path, fileName):
 #     CIPV_DISTANCE_TOLERANCE = {'result': {20: [], 40: [], 60: [], 80: [], 100: [], 120: [], 200: []}}
-#     topic_list = ['/fusion/radar_process/processed_radar_tracks',
+#     topicsList = ['/fusion/radar_process/processed_radar_tracks',
 #                   '/fusion/tracked_obstacles', '/input/perception/obstacle_list', '/perception/obstacle_list']
 #     cipv_id = 0
 #     radar_distance = None
-#     for topic, msg, t, bag_path, bag_count in utils.get_bag_msg(file_path, topic_list):
+#     for topic, msg, t, bagPath, bag_count in utils.get_bag_msg(file_path, topicsList):
 #         if topic == '/input/perception/obstacle_list' or topic == '/perception/obstacle_list':
 #             cipv_id = msg.cipv_id
 #             perception_tracks = msg.tracks
@@ -392,13 +661,13 @@ class CountAEBTimes(object):
 #
 #
 # @utils.register('测速误差统计', 'vehicle')
-# def cipv_velocity(file_path, file_name):
+# def cipv_velocity(file_path, fileName):
 #     CIPV_VELOCITY_TOLERANCE = {'result': {20: [], 40: [], 60: [], 80: [], 100: [], 120: [], 200: []}}
-#     topic_list = ['/fusion/radar_process/processed_radar_tracks',
+#     topicsList = ['/fusion/radar_process/processed_radar_tracks',
 #                   '/fusion/tracked_obstacles', '/input/perception/obstacle_list', '/perception/obstacle_list']
 #     radar_velocity = None
 #     cipv_id = 0
-#     for topic, msg, t, bag_path, bag_count in utils.get_bag_msg(file_path, topic_list):
+#     for topic, msg, t, bagPath, bag_count in utils.get_bag_msg(file_path, topicsList):
 #         if topic == '/input/perception/obstacle_list' or topic == '/perception/obstacle_list':
 #             cipv_id = msg.cipv_id
 #             perception_tracks = msg.tracks
@@ -456,172 +725,5 @@ class CountAEBTimes(object):
 #         pass
 #
 #
-# def CountCutinTimes(self, bag_data, bag_path):
-#     '''
-#     cutin场景数筛选
-#     '''
-#     is_active = True
-#     data = pd.read_excel('筛选记录表.xlsx', encoding='utf-8')
+
 #
-#     for topic, msg, t in bag_data.read_messages(
-#             topics='/planning/vehicle_monitor'):
-#         if topic == '/planning/vehicle_monitor':
-#             try:
-#                 obstacel_in_path = msg.obstacle_state.obstacle_in_path.position.x
-#                 is_dbw_enabled = msg.ego_car_state.is_dbw_enabled
-#                 cut_in_and_out = msg.obstacle_state.obstacle_in_path.cut_in_and_out
-#                 linear_velocity = msg.ego_car_state.linear_velocity
-#                 TTC = msg.obstacle_state.obstacle_in_path.ttc
-#
-#             except:
-#                 break
-#
-#             if cut_in_and_out == 3 and is_dbw_enabled == 1 and is_active == False and TTC <= 3.5:
-#                 is_active = True
-#                 data_time = time.strftime("%Y%m%d %H:%M:%S", time.localtime(t.to_sec()))
-#                 num = data.shape[0]
-#                 data.loc[num, 'NO'] = num + 1
-#                 data.loc[num, 'Date'] = data_time.split(' ')[0]
-#                 data.loc[num, 'Time'] = data_time.split(' ')[1]
-#                 data.loc[num, 'BagPath'] = bag_path
-#                 data.loc[num, 'type'] = 'cutin场景'
-#                 data.loc[num, 'Obstracel_X'] = obstacel_in_path
-#                 data.loc[num, 'velocity'] = int(linear_velocity * 3.6)
-#                 data.loc[num, 'TTC'] = round(TTC, 2)
-#                 self.cutin += 1
-#
-#             if cut_in_and_out != 3 and is_active == True:
-#                 is_active = False
-#
-#     data.to_excel('筛选记录表.xlsx', index=False, engine='openpyxl')
-#     return self.cutin
-#
-#
-# def CountDangerDistance(self, bag_data, bag_path):
-#     '''
-#     危险驾驶，距离前车过近
-#     '''
-#
-#     is_active = False
-#     data = pd.read_excel('筛选记录表.xlsx', encoding='utf-8')
-#
-#     for topic, msg, t in bag_data.read_messages(
-#             topics='/planning/vehicle_monitor'):
-#         if topic == '/planning/vehicle_monitor':
-#             try:
-#                 obstacel_in_path = msg.obstacle_state.obstacle_in_path.position.x
-#                 is_dbw_enabled = msg.ego_car_state.is_dbw_enabled
-#                 cut_in_and_out = msg.obstacle_state.obstacle_in_path.cut_in_and_out
-#                 linear_velocity = msg.ego_car_state.linear_velocity
-#                 TTC = msg.obstacle_state.obstacle_in_path.ttc
-#
-#             except:
-#                 break
-#
-#             if cut_in_and_out == 0 and is_dbw_enabled == 1 and is_active == False and obstacel_in_path <= 10:
-#                 is_active = True
-#                 data_time = time.strftime("%Y%m%d %H:%M:%S", time.localtime(t.to_sec()))
-#                 num = data.shape[0]
-#                 data.loc[num, 'NO'] = num + 1
-#                 data.loc[num, 'Date'] = data_time.split(' ')[0]
-#                 data.loc[num, 'Time'] = data_time.split(' ')[1]
-#                 data.loc[num, 'BagPath'] = bag_path
-#                 data.loc[num, 'type'] = '距前车过近'
-#                 data.loc[num, 'Obstracel_X'] = obstacel_in_path
-#                 data.loc[num, 'velocity'] = int(linear_velocity * 3.6)
-#                 data.loc[num, 'TTC'] = round(TTC, 2)
-#
-#                 self.cutin += 1
-#
-#             if obstacel_in_path >= 20 and is_active == True:
-#                 is_active = False
-#
-#     data.to_excel('筛选记录表.xlsx', index=False, engine='openpyxl')
-#     return self.cutin
-#
-#
-# def CountLaneDeviate(self, bag_data, bag_path):
-#     '''
-#     车道保持不居中
-#     '''
-#     is_active = False
-#     data = pd.read_excel('筛选记录表.xlsx', encoding='utf-8')
-#
-#     for topic, msg, t in bag_data.read_messages(
-#             topics='/planning/vehicle_monitor'):
-#         if topic == '/planning/vehicle_monitor':
-#             try:
-#                 obstacel_in_path = msg.obstacle_state.obstacle_in_path.position.x
-#                 is_dbw_enabled = msg.ego_car_state.is_dbw_enabled
-#                 cut_in_and_out = msg.obstacle_state.obstacle_in_path.cut_in_and_out
-#                 linear_velocity = msg.ego_car_state.linear_velocity
-#                 TTC = msg.obstacle_state.obstacle_in_path.ttc
-#
-#             except:
-#                 break
-#
-#             if cut_in_and_out == 0 and is_dbw_enabled == 1 and is_active == False and obstacel_in_path <= 10:
-#                 is_active = True
-#                 data_time = time.strftime("%Y%m%d %H:%M:%S", time.localtime(t.to_sec()))
-#                 num = data.shape[0]
-#                 data.loc[num, 'NO'] = num + 1
-#                 data.loc[num, 'Date'] = data_time.split(' ')[0]
-#                 data.loc[num, 'Time'] = data_time.split(' ')[1]
-#                 data.loc[num, 'BagPath'] = bag_path
-#                 data.loc[num, 'type'] = '距前车过近'
-#                 data.loc[num, 'Obstracel_X'] = obstacel_in_path
-#                 data.loc[num, 'velocity'] = int(linear_velocity * 3.6)
-#                 data.loc[num, 'TTC'] = round(TTC, 2)
-#
-#                 self.cutin += 1
-#
-#             if obstacel_in_path >= 20 and is_active == True:
-#                 is_active = False
-#
-#     data.to_excel('筛选记录表.xlsx', index=False, engine='openpyxl')
-#     return self.cutin
-#
-#
-# def CountAcceleratedTimes(self, bag_data, bag_path):
-#     '''
-#     加减速度过大场景数据筛选
-#     '''
-#     is_active = True
-#     data = pd.read_excel('筛选记录表.xlsx', encoding='utf-8')
-#
-#     for topic, msg, t in bag_data.read_messages(
-#             topics='/planning/vehicle_monitor'):
-#         if topic == '/planning/vehicle_monitor':
-#             try:
-#                 linear_acceleration = msg.ego_car_state.linear_acceleration
-#                 is_dbw_enabled = msg.ego_car_state.is_dbw_enabled
-#                 obstacel_in_path = msg.obstacle_state.obstacle_in_path.position.x
-#                 linear_velocity = msg.ego_car_state.linear_velocity
-#                 TTC = msg.obstacle_state.obstacle_in_path.ttc
-#             except:
-#                 break
-#
-#             if is_dbw_enabled == 0:
-#                 is_active = False
-#                 continue
-#
-#             if linear_acceleration <= -2 and is_active == False:
-#                 is_active = True
-#                 data_time = time.strftime("%Y%m%d %H:%M:%S", time.localtime(t.to_sec()))
-#                 num = data.shape[0]
-#                 data.loc[num, 'NO'] = num + 1
-#                 data.loc[num, 'Date'] = data_time.split(' ')[0]
-#                 data.loc[num, 'Time'] = data_time.split(' ')[1]
-#                 data.loc[num, 'BagPath'] = bag_path
-#                 data.loc[num, 'type'] = '重刹、点刹'
-#                 data.loc[num, 'Obstracel_X'] = obstacel_in_path
-#                 data.loc[num, 'velocity'] = int(linear_velocity * 3.6)
-#                 data.loc[num, 'TTC'] = round(TTC, 2)
-#
-#                 self.acceleration += 1
-#
-#             if linear_acceleration >= 0 and is_active == True:
-#                 is_active = False
-#
-#     data.to_excel('筛选记录表.xlsx', index=False, engine='openpyxl')
-#     return self.acceleration
