@@ -158,7 +158,7 @@ class TSRFilter(object):
                     utils.logger.error(E)
                     break
 
-                if now_time - self.last_time < 20:
+                if now_time - self.last_time < 120:
                     continue
 
                 if len(traffic_signs) > 0:
@@ -188,7 +188,7 @@ class TLIFilter(object):
 
     def __call__(self, bagData, bagPath):
         for topic, msg, t in bagData.read_messages(topics=self.topicsList):
-            if topic == '/perception/traffic_lights':
+            if topic == '/perception/traffic_signs':
                 try:
                     traffic_signs = msg.traffic_signals
                     now_time = t.to_sec()
@@ -196,7 +196,7 @@ class TLIFilter(object):
                     utils.logger.error(E)
                     break
 
-                if now_time - self.last_time < 20:
+                if now_time - self.last_time < 120:
                     continue
 
                 if len(traffic_signs) > 0:
@@ -248,7 +248,7 @@ class IncorrectSenseFilter(object):
                     if new_obstacle_in_path_type == 0:
                         continue
                     self.last_obstacle_in_path_type = new_obstacle_in_path_type
-                    if now_time - self.last_time < 5 or obstacle_in_path_x > 80:
+                    if now_time - self.last_time < 60 or obstacle_in_path_x > 80:
                         continue
 
                     self.last_time = now_time
@@ -275,31 +275,25 @@ class OmissionSenseFilter(object):
         self.fileName = fileName
         self.topicsList = ['/input/perception/obstacle_list', '/perception/obstacle_list']
         self.last_cipv_id = None
-        self.last_cipv_time = 0
         self.previous_last_cipv_id = None
+        self.last_cipv_time = 0
         self.last_time = 0
         self.before_tracks = []
 
     def __call__(self, bagData, bagPath):
         for topic, msg, t in bagData.read_messages(topics=self.topicsList):
             if topic == '/input/perception/obstacle_list' or topic == '/perception/obstacle_list':
-                try:
-                    new_cipv_id = msg.cipv_id
-                    tracks = msg.tracks
-                    now_time = t.to_sec()
-                except Exception as E:
-                    utils.logger.error(E)
-                    break
-
+                new_cipv_id = msg.cipv_id
+                tracks = msg.tracks
+                now_time = t.to_sec()
                 if self.last_cipv_id != new_cipv_id:
-                    if now_time - self.last_time < 10 or now_time - self.last_cipv_time > 0.8 or new_cipv_id != 0:
-                        pass
-
-                    elif self.previous_last_cipv_id == new_cipv_id and new_cipv_id not in self.before_tracks:
+                    if (now_time - self.last_cipv_time) <= 1 and self.previous_last_cipv_id == new_cipv_id and (
+                            new_cipv_id not in self.before_tracks) and new_cipv_id != 0 and (
+                            now_time - self.last_time) > 120:
                         for i in range(len(tracks)):
                             if tracks[i].id == new_cipv_id:
-                                self.last_problem_time = now_time
-                                cipv_x = tracks[i].poscontinueition.x
+                                self.last_time = now_time
+                                cipv_x = tracks[i].position.x
                                 data = pd.read_excel(self.fileName)
                                 data_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t.to_sec()))
                                 num = data.shape[0]
@@ -307,17 +301,17 @@ class OmissionSenseFilter(object):
                                 data.loc[num, 'Date'] = data_time.split(' ')[0]
                                 data.loc[num, 'BagPath'] = bagPath
                                 data.loc[num, 'Time'] = data_time.split(' ')[1]
-                                data.loc[num, 'Problem'] = '目标漏检'
-                                data.loc[num, 'Distance'] = cipv_x
+                                data.loc[num, 'Problem'] = '检测目标漏检'
+                                data.loc[num, 'Obstracel_X'] = cipv_x
                                 data.to_excel(self.fileName, index=False, engine='openpyxl')
                                 break
-                    self.last_cipv_time = now_time
                     self.previous_last_cipv_id = self.last_cipv_id
-                    self.last_cipv_time = new_cipv_id
-
-                self.before_tracks = []
+                    self.last_cipv_id = new_cipv_id
+                    self.last_cipv_time = now_time
+                tracks_id_list = []
                 if len(tracks) > 0:
-                    [self.before_tracks.append(tracks[i].id) for i in range(len(tracks))]
+                    [tracks_id_list.append(tracks[i].id) for i in range(len(tracks))]
+                self.before_tracks = tracks_id_list
 
 
 @utils.register('cutin场景', 'vehicle')
@@ -341,32 +335,70 @@ class CutInFilter(object):
                     drive_mode = msg.ego_car_state.drive_mode
                     cut_in_and_out = msg.obstacle_state.obstacle_in_path.cut_in_and_out
                     linear_velocity = msg.ego_car_state.linear_velocity
-                    TTC = msg.obstacle_state.obstacle_in_path.ttc
+                    # TTC = msg.obstacle_state.obstacle_in_path.ttc
+                    now_time = t.to_sec()
+                except Exception as E:
+                    utils.logger.error(E)
+                    break
+                if cut_in_and_out == 2 and drive_mode != 0 and self.is_active is False:
+                    self.is_active = True
+                    if now_time - self.last_time > 60:
+                        self.last_time = now_time
+                        data = pd.read_excel(self.fileName)
+                        data_time = time.strftime("%Y%m%d %H:%M:%S", time.localtime(t.to_sec()))
+                        num = data.shape[0]
+                        data.loc[num, 'NO'] = num + 1
+                        data.loc[num, 'Date'] = data_time.split(' ')[0]
+                        data.loc[num, 'Time'] = data_time.split(' ')[1]
+                        data.loc[num, 'BagPath'] = bagPath
+                        data.loc[num, 'Problem'] = 'CUTIN场景'
+                        data.loc[num, 'Distance'] = obstacle_in_path
+                        data.loc[num, 'Velocity'] = int(linear_velocity * 3.6)
+                        # data.loc[num, 'TTC'] = round(TTC, 2)
+                        data.to_excel(self.fileName, index=False, engine='openpyxl')
+                if cut_in_and_out == 0 and self.is_active is True:
+                    self.is_active = False
+
+
+@utils.register('车道线质量差', 'vehicle')
+@singleton
+class AcceleratedFilter(object):
+    """
+    车道线质量较差场景筛选
+    """
+
+    def __init__(self, fileName):
+        self.fileName = fileName
+        self.topicsList = ['/planning/vehicle_monitor']
+        self.is_active = False
+        self.last_time = 0
+
+    def __call__(self, bagData, bagPath):
+        for topic, msg, t in bagData.read_messages(topics=self.topicsList):
+            if topic == '/planning/vehicle_monitor':
+                try:
+                    lane_quality = msg.lane_state.fused_lane_array.left_lane.quality
                     now_time = t.to_sec()
                 except Exception as E:
                     utils.logger.error(E)
                     break
 
-                if now_time - self.last_time < 30:
-                    continue
-
-                if cut_in_and_out == 3 and drive_mode == 3 and self.is_active is False and TTC <= 3.5:
+                if lane_quality < 3 and self.is_active is False:
                     self.is_active = True
-                    self.last_time = now_time
-                    data = pd.read_excel(self.fileName)
-                    data_time = time.strftime("%Y%m%d %H:%M:%S", time.localtime(t.to_sec()))
-                    num = data.shape[0]
-                    data.loc[num, 'NO'] = num + 1
-                    data.loc[num, 'Date'] = data_time.split(' ')[0]
-                    data.loc[num, 'Time'] = data_time.split(' ')[1]
-                    data.loc[num, 'BagPath'] = bagPath
-                    data.loc[num, 'Problem'] = 'CUTIN场景'
-                    data.loc[num, 'Distance'] = obstacle_in_path
-                    data.loc[num, 'Velocity'] = int(linear_velocity * 3.6)
-                    data.loc[num, 'TTC'] = round(TTC, 2)
-                    data.to_excel(self.fileName, index=False, engine='openpyxl')
 
-                if cut_in_and_out != 3 and self.is_active is True:
+                    if now_time - self.last_time > 120:
+                        self.last_time = now_time
+                        data = pd.read_excel(self.fileName)
+                        data_time = time.strftime("%Y%m%d %H:%M:%S", time.localtime(t.to_sec()))
+                        num = data.shape[0]
+                        data.loc[num, 'NO'] = num + 1
+                        data.loc[num, 'Date'] = data_time.split(' ')[0]
+                        data.loc[num, 'Time'] = data_time.split(' ')[1]
+                        data.loc[num, 'BagPath'] = bagPath
+                        data.loc[num, 'Problem'] = '车道线质量差'
+                        data.to_excel(self.fileName, index=False, engine='openpyxl')
+
+                if lane_quality >= 3 and self.is_active is True:
                     self.is_active = False
 
 
@@ -385,37 +417,37 @@ class AcceleratedFilter(object):
 
     def __call__(self, bagData, bagPath):
         for topic, msg, t in bagData.read_messages(topics=self.topicsList):
-            try:
-                linear_acceleration = msg.ego_car_state.linear_acceleration
-                drive_mode = msg.ego_car_state.drive_mode
-                obstacle_distance = msg.obstacle_state.obstacle_in_path.position.x
-                linear_velocity = msg.ego_car_state.linear_velocity
-                TTC = msg.obstacle_state.obstacle_in_path.ttc
-                now_time = t.to_sec()
-            except Exception as E:
-                utils.logger.error(E)
-                break
+            if topic == '/planning/vehicle_monitor':
+                try:
+                    linear_acceleration = msg.ego_car_state.linear_acceleration
+                    drive_mode = msg.ego_car_state.drive_mode
+                    obstacle_distance = msg.obstacle_state.obstacle_in_path.position.x
+                    linear_velocity = msg.ego_car_state.linear_velocity
+                    TTC = msg.obstacle_state.obstacle_in_path.ttc
+                    now_time = t.to_sec()
+                except Exception as E:
+                    utils.logger.error(E)
+                    break
 
-            if now_time - self.last_time < 5:
-                continue
+                if abs(linear_acceleration) > 3 and self.is_active is False and drive_mode != 0:
+                    self.is_active = True
+                    if now_time - self.last_time >= 60:
+                        self.last_time = now_time
+                        data = pd.read_excel(self.fileName)
+                        data_time = time.strftime("%Y%m%d %H:%M:%S", time.localtime(t.to_sec()))
+                        num = data.shape[0]
+                        data.loc[num, 'NO'] = num + 1
+                        data.loc[num, 'Date'] = data_time.split(' ')[0]
+                        data.loc[num, 'Time'] = data_time.split(' ')[1]
+                        data.loc[num, 'BagPath'] = bagPath
+                        data.loc[num, 'Problem'] = '重加速度'
+                        data.loc[num, 'Distance'] = obstacle_distance
+                        data.loc[num, 'Velocity'] = int(linear_velocity * 3.6)
+                        data.loc[num, 'TTC'] = round(TTC, 2)
+                        data.to_excel(self.fileName, index=False, engine='openpyxl')
 
-            if linear_acceleration <= -3 and self.is_active is False and drive_mode != 0:
-                self.is_active = True
-                self.last_time = now_time
-                data = pd.read_excel(self.fileName)
-                data_time = time.strftime("%Y%m%d %H:%M:%S", time.localtime(t.to_sec()))
-                num = data.shape[0]
-                data.loc[num, 'NO'] = num + 1
-                data.loc[num, 'Date'] = data_time.split(' ')[0]
-                data.loc[num, 'Time'] = data_time.split(' ')[1]
-                data.loc[num, 'BagPath'] = bagPath
-                data.loc[num, 'Problem'] = '重刹'
-                data.loc[num, 'Distance'] = obstacle_distance
-                data.loc[num, 'Velocity'] = int(linear_velocity * 3.6)
-                data.loc[num, 'TTC'] = round(TTC, 2)
-
-            if linear_acceleration >= 0 and self.is_active is True:
-                self.is_active = False
+                if abs(linear_acceleration) <= 1 and self.is_active is True:
+                    self.is_active = False
 
 
 @utils.register('大曲率弯道', 'vehicle')
@@ -427,78 +459,36 @@ class AcceleratedFilter(object):
 
     def __init__(self, fileName):
         self.fileName = fileName
-        self.topicsList = ['/planning/vehicle_monitor', ]
-        self.is_active = False
-        self.last_time = 0
-
-    def __call__(self, bagData, bagPath):
-        for topic, msg, t in bagData.read_messages(topics=self.topicsList):
-            try:
-                lane_quality = msg.lane_state.fused_lane_array.left_lane.quality
-                lane_curv = msg.lane_state.fused_lane_array.left_lane.curvature_parameter_c2
-                now_time = t.to_sec()
-            except Exception as E:
-                utils.logger.error(E)
-                break
-
-            if now_time - self.last_time < 180:
-                continue
-
-            if lane_quality == 3 and lane_curv > 0.015 and self.is_active is False:
-                self.is_active = True
-                self.last_time = now_time
-                data = pd.read_excel(self.fileName)
-                data_time = time.strftime("%Y%m%d %H:%M:%S", time.localtime(t.to_sec()))
-                num = data.shape[0]
-                data.loc[num, 'NO'] = num + 1
-                data.loc[num, 'Date'] = data_time.split(' ')[0]
-                data.loc[num, 'Time'] = data_time.split(' ')[1]
-                data.loc[num, 'BagPath'] = bagPath
-                data.loc[num, 'Problem'] = '急弯'
-
-            if lane_curv < 0.001 and self.is_active is True:
-                self.is_active = False
-
-
-@utils.register('车道线质量差', 'vehicle')
-@singleton
-class AcceleratedFilter(object):
-    """
-    车道线质量较差场景筛选
-    """
-
-    def __init__(self, fileName):
-        self.fileName = fileName
         self.topicsList = ['/planning/vehicle_monitor']
         self.is_active = False
         self.last_time = 0
 
     def __call__(self, bagData, bagPath):
         for topic, msg, t in bagData.read_messages(topics=self.topicsList):
-            try:
-                lane_quality = msg.lane_state.fused_lane_array.left_lane.quality
-                now_time = t.to_sec()
-            except Exception as E:
-                utils.logger.error(E)
-                break
+            if topic == '/planning/vehicle_monitor':
+                try:
+                    lane_quality = msg.lane_state.fused_lane_array.left_lane.quality
+                    lane_curv = msg.lane_state.fused_lane_array.left_lane.curvature_parameter_c2
+                    now_time = t.to_sec()
+                except Exception as E:
+                    utils.logger.error(E)
+                    break
+                if lane_quality >= 2 and abs(lane_curv) > 0.015 and self.is_active is False:
+                    self.is_active = True
+                    if now_time - self.last_time > 120:
+                        self.last_time = now_time
+                        data = pd.read_excel(self.fileName)
+                        data_time = time.strftime("%Y%m%d %H:%M:%S", time.localtime(t.to_sec()))
+                        num = data.shape[0]
+                        data.loc[num, 'NO'] = num + 1
+                        data.loc[num, 'Date'] = data_time.split(' ')[0]
+                        data.loc[num, 'Time'] = data_time.split(' ')[1]
+                        data.loc[num, 'BagPath'] = bagPath
+                        data.loc[num, 'Problem'] = '急弯'
+                        data.to_excel(self.fileName, index=False, engine='openpyxl')
 
-            if now_time - self.last_time < 60:
-                continue
-
-            if 0 < lane_quality < 3 and self.is_active is False:
-                self.is_active = True
-                self.last_time = now_time
-                data = pd.read_excel(self.fileName)
-                data_time = time.strftime("%Y%m%d %H:%M:%S", time.localtime(t.to_sec()))
-                num = data.shape[0]
-                data.loc[num, 'NO'] = num + 1
-                data.loc[num, 'Date'] = data_time.split(' ')[0]
-                data.loc[num, 'Time'] = data_time.split(' ')[1]
-                data.loc[num, 'BagPath'] = bagPath
-                data.loc[num, 'Problem'] = '车道线质量差'
-
-            if lane_quality >= 3 and self.is_active is True:
-                self.is_active = False
+                if lane_curv < 0.001 and self.is_active is True:
+                    self.is_active = False
 
 
 @utils.register('距离前车过近', 'vehicle')
@@ -528,23 +518,23 @@ class DangerDistanceFilter(object):
                     utils.logger.error(E)
                     break
 
-                if now_time - self.last_time < 60:
-                    continue
-
-                if cut_in_and_out == 0 and drive_mode == 3 and self.is_active is False and obstacle_in_path <= 10:
+                if cut_in_and_out == 0 and drive_mode != 0 and self.is_active is False and obstacle_in_path <= 10:
                     self.is_active = True
-                    self.last_time = now_time
-                    data = pd.read_excel(self.fileName)
-                    data_time = time.strftime("%Y%m%d %H:%M:%S", time.localtime(t.to_sec()))
-                    num = data.shape[0]
-                    data.loc[num, 'NO'] = num + 1
-                    data.loc[num, 'Date'] = data_time.split(' ')[0]
-                    data.loc[num, 'Time'] = data_time.split(' ')[1]
-                    data.loc[num, 'BagPath'] = bagPath
-                    data.loc[num, 'type'] = '距前车过近'
-                    data.loc[num, 'Distance'] = obstacle_in_path
-                    data.loc[num, 'Velocity'] = int(linear_velocity * 3.6)
-                    data.loc[num, 'TTC'] = round(TTC, 2)
+                    if now_time - self.last_time > 60:
+                        self.last_time = now_time
+                        data = pd.read_excel(self.fileName)
+                        data_time = time.strftime("%Y%m%d %H:%M:%S", time.localtime(t.to_sec()))
+                        num = data.shape[0]
+                        data.loc[num, 'NO'] = num + 1
+                        data.loc[num, 'Date'] = data_time.split(' ')[0]
+                        data.loc[num, 'Time'] = data_time.split(' ')[1]
+                        data.loc[num, 'BagPath'] = bagPath
+                        data.loc[num, 'Problem'] = '距前车过近'
+                        data.loc[num, 'Distance'] = obstacle_in_path
+                        data.loc[num, 'Velocity'] = int(linear_velocity * 3.6)
+                        data.loc[num, 'TTC'] = round(TTC, 2)
+                        data.to_excel(self.fileName, index=False, engine='openpyxl')
+
                 if obstacle_in_path >= 20 and self.is_active is True:
                     self.is_active = False
 
@@ -567,35 +557,31 @@ class LaneDeviateFilter(object):
         for topic, msg, t in bagData.read_messages(topics=self.topicsList):
             if topic == '/planning/vehicle_monitor':
                 try:
-                    obstacle_in_path = msg.obstacle_state.obstacle_in_path.position.x
+                    lane_quality = msg.lane_state.fused_lane_array.left_lane.quality
                     drive_mode = msg.ego_car_state.drive_mode
-                    cut_in_and_out = msg.obstacle_state.obstacle_in_path.cut_in_and_out
-                    linear_velocity = msg.ego_car_state.linear_velocity
-                    TTC = msg.obstacle_state.obstacle_in_path.ttc
+                    lane_position = msg.lane_state.fused_lane_array.center_lane.position_parameter_c0
                     now_time = t.to_sec()
+
                 except Exception as E:
                     utils.logger.error(E)
                     break
 
-                if now_time - self.last_time < 60:
-                    continue
-
-                if cut_in_and_out == 0 and drive_mode == 3 and self.is_active is False and obstacle_in_path <= 10:
+                if lane_quality >= 3 and drive_mode != 0 and self.is_active is False and abs(lane_position) > 0.5:
                     self.is_active = True
-                    self.last_time = now_time
-                    data = pd.read_excel(self.fileName)
-                    data_time = time.strftime("%Y%m%d %H:%M:%S", time.localtime(t.to_sec()))
-                    num = data.shape[0]
-                    data.loc[num, 'NO'] = num + 1
-                    data.loc[num, 'Date'] = data_time.split(' ')[0]
-                    data.loc[num, 'Time'] = data_time.split(' ')[1]
-                    data.loc[num, 'BagPath'] = bagPath
-                    data.loc[num, 'type'] = '距前车过近'
-                    data.loc[num, 'Distance'] = obstacle_in_path
-                    data.loc[num, 'Velocity'] = int(linear_velocity * 3.6)
-                    data.loc[num, 'TTC'] = round(TTC, 2)
 
-                if obstacle_in_path >= 20 and self.is_active is True:
+                    if now_time - self.last_time > 120:
+                        self.last_time = now_time
+                        data = pd.read_excel(self.fileName)
+                        data_time = time.strftime("%Y%m%d %H:%M:%S", time.localtime(t.to_sec()))
+                        num = data.shape[0]
+                        data.loc[num, 'NO'] = num + 1
+                        data.loc[num, 'Date'] = data_time.split(' ')[0]
+                        data.loc[num, 'Time'] = data_time.split(' ')[1]
+                        data.loc[num, 'BagPath'] = bagPath
+                        data.loc[num, 'type'] = '车道保持不居中'
+                        data.to_excel(self.fileName, index=False, engine='openpyxl')
+
+                if lane_position <= 0.1 and self.is_active is True:
                     self.is_active = False
 
 # @utils.register('测距误差统计', 'vehicle')
