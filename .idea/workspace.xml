@@ -1,20 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
   <component name="ChangeListManager">
     <list default="true" id="08032d8b-1c07-43a3-b727-e15d0c2adfc9" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/simulation/cfgs/scene_road_structure_cfg.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scene.md" beforeDir="false" afterPath="$PROJECT_DIR$/scene.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/common/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/common/utils.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/gui.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/gui.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/simulation/cfgs/scene_RoadStructure_cfg.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/simulation/cfgs/scene_digital_config.json" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/simulation/cfgs/scene_digital_config.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/simulation/cfgs/scene_env_config.json" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/simulation/cfgs/scene_env_config.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/simulation/cfgs/scene_gvt_config.json" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/simulation/cfgs/scene_gvt_config.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/simulation/cfgs/scene_temporary_config.json" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/simulation/cfgs/scene_temporary_config.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/simulation/cfgs/scene_traffic_config.json" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/simulation/cfgs/scene_traffic_config.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/simulation/cfgs/scene_vut_config.json" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/simulation/cfgs/scene_vut_config.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/simulation/filter_vehicle_scene.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/simulation/filter_vehicle_scene.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/mainwindow.ui" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/pilotwindow.ui" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/readme.md" beforeDir="false" afterPath="$PROJECT_DIR$/readme.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -55,7 +49,7 @@
   <component name="PropertiesComponent">
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
-    <property name="last_opened_file_path" value="$USER_HOME$/Desktop/carmaker_simulator/hwp/src/Automated_Testing_Tool/DataAnalyser" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
     <property name="settings.editor.selected.configurable" value="preferences.externalTools" />
   </component>
   <component name="RecentsManager">
@@ -73,49 +67,7 @@
       <recent name="$PROJECT_DIR$/scpipts/assist" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.gui (1)">
-    <configuration name="case_sence_library" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="Nullmax_TestTools" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/scripts/simulation" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/scripts/simulation/case_sence_library.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="draw_plot" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="Nullmax_TestTools" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/draw_plot.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
+  <component name="RunManager" selected="Python.gui">
     <configuration name="gui (1)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Nullmax_TestTools" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -129,6 +81,27 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/scripts/gui.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="gui" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Nullmax_TestTools" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/gui.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -242,13 +215,34 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="tool" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Nullmax_TestTools" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/tool.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.gui" />
+        <item itemvalue="Python.tool" />
         <item itemvalue="Python.gui (1)" />
         <item itemvalue="Python.test (1)" />
         <item itemvalue="Python.test" />
-        <item itemvalue="Python.draw_plot" />
-        <item itemvalue="Python.case_sence_library" />
       </list>
     </recent_temporary>
   </component>
